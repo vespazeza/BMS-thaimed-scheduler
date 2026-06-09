@@ -2,18 +2,39 @@
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
+// แปลงตัวเลข 0-9 เป็นภาษาไทย
+function digitToThai(d) {
+  const map = ['ศูนย์','หนึ่ง','สอง','สาม','สี่','ห้า','หก','เจ็ด','แปด','เก้า'];
+  return map[d] || d;
+}
+
+// แปลงตัวเลข (หลายหลัก) เป็นคำอ่านทีละหลัก เช่น 12 → "หนึ่ง สอง"
+function numToThaiWords(n) {
+  return String(n).split('').map(ch => digitToThai(Number(ch))).join(' ');
+}
+
+// อ่านหมายเลขคิวทีละตัวอักษร/ตัวเลข เช่น A01 → "เอ ศูนย์ หนึ่ง"
+function spellQueueNo(q) {
+  const letterMap = { A:'เอ', B:'บี', C:'ซี', D:'ดี' };
+  return String(q).toUpperCase().split('').map(ch => {
+    if (/[0-9]/.test(ch)) return digitToThai(Number(ch));
+    return letterMap[ch] || ch;
+  }).join(' ');
+}
+
 function fmtQueueNo(n) {
   return `A${String(n).padStart(2, '0')}`;
 }
 
 function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedName) {
-  // สร้างข้อความ: "ขอเชิญหมายเลข A07 ที่ห้อง 1 เตียง A1"
-  let text = `ขอเชิญหมายเลข ${queueNo}`;
+  // สร้างข้อความอ่านทีละคำ เว้นจังหวะชัดเจน
+  // ตัวอย่าง: "ขอเชิญ หมายเลข เอ ศูนย์ หนึ่ง ที่ ห้อง หนึ่ง เตียง หนึ่ง"
+  let text = `ขอเชิญ หมายเลข ${spellQueueNo(queueNo)}`;
   if (bedRoom) {
-    text += ` ที่ห้อง ${bedRoom}`;
-    if (bedName) text += ` เตียง ${bedName}`;
+    text += ` ที่ ห้อง ${numToThaiWords(bedRoom)}`;
+    if (bedName) text += ` เตียง ${numToThaiWords(bedName)}`;
   } else if (bedName) {
-    text += ` เตียง ${bedName}`;
+    text += ` เตียง ${numToThaiWords(bedName)}`;
   } else if (bedLabel) {
     text += ` ${bedLabel}`;
   }
@@ -21,7 +42,7 @@ function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedNam
   // 1. ResponsiveVoice — เสียงหญิงภาษาไทยจาก library (ดีที่สุด)
   if (window.responsiveVoice) {
     window.responsiveVoice.cancel();
-    window.responsiveVoice.speak(text, "Thai Female", { rate: 0.85, volume: 1 });
+    window.responsiveVoice.speak(text, "Thai Female", { rate: 0.55, volume: 1 });
     return;
   }
 
@@ -29,11 +50,11 @@ function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedNam
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = 'th-TH'; utt.rate = 0.7; utt.pitch = 1.75; utt.volume = 1;
+  utt.lang = 'th-TH'; utt.rate = 0.5; utt.pitch = 1.75; utt.volume = 1;
   function pickVoice() {
     const th = window.speechSynthesis.getVoices().filter(v => v.lang === 'th-TH' || v.lang === 'th');
     const female = th.find(v => /thipsuda|kanya|female|woman|หญิง/i.test(v.name))
-      || th.find(v => !/pattara|niwat|male/i.test(v.name)) || th[0];
+      || th.find(v => !/pattara|niwat|male|ชาย/i.test(v.name)) || th[0];
     if (female) utt.voice = female;
   }
   if (window.speechSynthesis.getVoices().length > 0) { pickVoice(); window.speechSynthesis.speak(utt); }
