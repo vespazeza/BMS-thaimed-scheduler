@@ -29,12 +29,12 @@ function fmtQueueNo(n) {
 function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedName) {
   // สร้างข้อความอ่านทีละคำ เว้นจังหวะชัดเจน
   // ตัวอย่าง: "ขอเชิญ หมายเลข เอ ศูนย์ หนึ่ง ที่ ห้อง หนึ่ง เตียง หนึ่ง"
-  let text = `ขอเชิญ หมายเลข ${spellQueueNo(queueNo)}`;
+  let text = `ขอเชิญหมายเลข ${spellQueueNo(queueNo)}`;
   if (bedRoom) {
-    text += ` ที่ ห้อง ${numToThaiWords(bedRoom)}`;
-    if (bedName) text += ` เตียง ${numToThaiWords(bedName)}`;
+    text += ` ที่ห้อง ${numToThaiWords(bedRoom)}`;
+    if (bedName) text += ` เตียง${numToThaiWords(bedName)}`;
   } else if (bedName) {
-    text += ` เตียง ${numToThaiWords(bedName)}`;
+    text += ` เตียง${numToThaiWords(bedName)}`;
   } else if (bedLabel) {
     text += ` ${bedLabel}`;
   }
@@ -42,7 +42,7 @@ function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedNam
   // 1. ResponsiveVoice — เสียงหญิงภาษาไทยจาก library (ดีที่สุด)
   if (window.responsiveVoice) {
     window.responsiveVoice.cancel();
-    window.responsiveVoice.speak(text, "Thai Female", { rate: 0.55, volume: 1 });
+    window.responsiveVoice.speak(text, "Thai Female", { rate: 0.45, volume: 1 });
     return;
   }
 
