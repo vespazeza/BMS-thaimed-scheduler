@@ -2508,7 +2508,8 @@ function App() {
       const licCol    = findCol("license_no", "license_num", "certificate");
       // active column — ต้องไม่ใช่ FK ที่มี "type" หรือ "service"
       const activeCol = cols.find(c =>
-        (c === "active" || c.endsWith("_active") || c === "is_active") &&
+        (c === "active" || c.endsWith("_active") || c === "is_active" ||
+         c === "active_status" || c.endsWith("_active_status")) &&
         !c.includes("service") && !c.includes("type")
       );
 
