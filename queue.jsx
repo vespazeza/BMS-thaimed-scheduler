@@ -27,38 +27,71 @@ function fmtQueueNo(n) {
 }
 
 function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedName) {
-  // สร้างข้อความโดยเว้นวรรคชัดเจน ใช้จุดเพื่อบังคับให้ TTS หยุดพักชัดเจน
-  const parts = [`ขอเชิญหมายเลข ${spellQueueNo(queueNo)}`];
+  const parts = [`ขอเชิญ หมายเลข ${spellQueueNo(queueNo)}`];
   if (bedRoom != null && bedRoom !== '') {
     parts.push(`ที่ห้อง ${numToThaiWords(bedRoom)}`);
   }
-  if (bedName != null && bedName !== '') {
+  if (bedName != null && bedName !== '' && /^\d+$/.test(String(bedName))) {
     parts.push(`เตียง ${numToThaiWords(bedName)}`);
   } else if (bedLabel && (bedRoom == null || bedRoom === '')) {
     parts.push(bedLabel);
   }
-  const text = parts.join('. ');
+  const text = parts.join(' ');
 
-  // 1. ResponsiveVoice — เสียงหญิงภาษาไทยจาก library (ดีที่สุด)
-  if (window.responsiveVoice) {
-    window.responsiveVoice.cancel();
-    window.responsiveVoice.speak(text, "Thai Female", { rate: 0.45, volume: 1 });
+  // Web Speech API (last resort)
+  function useWebSpeech() {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    function doSpeak() {
+      const all = window.speechSynthesis.getVoices();
+      if (all.length === 0) { setTimeout(doSpeak, 200); return; }
+      const th = all.filter(v => v.lang === 'th-TH' || v.lang === 'th');
+      console.log('[TTS] เสียงไทยในระบบ:', th.map(v => v.name).join(' | ') || 'ไม่มี');
+      const female =
+        th.find(v => /premwadee|thipsuda|kanya|achara|female|woman|หญิง/i.test(v.name)) ||
+        th.find(v => /google/i.test(v.name)) ||
+        th.find(v => !/niwat|sawit|pattara|male|ชาย/i.test(v.name));
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = 'th-TH'; utt.rate = 0.4; utt.pitch = 2; utt.volume = 1;
+      if (female) utt.voice = female;
+      console.log('[TTS] Web Speech:', female?.name || 'Pattara');
+      window.speechSynthesis.speak(utt);
+    }
+    if (window.speechSynthesis.getVoices().length > 0) doSpeak();
+    else window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; doSpeak(); };
+  }
+
+  // หากมี ResponsiveVoice library โหลดอยู่แล้ว ใช้เลย
+  if (window.responsiveVoice && typeof window.responsiveVoice.speak === 'function') {
+    window.responsiveVoice.speak(text, "Thai Female", { rate: 0.38, volume: 1 });
+    console.log('[TTS] ResponsiveVoice library');
     return;
   }
 
-  // 2. Web Speech API fallback (ถ้าไม่มี ResponsiveVoice)
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = 'th-TH'; utt.rate = 0.5; utt.pitch = 1.75; utt.volume = 1;
-  function pickVoice() {
-    const th = window.speechSynthesis.getVoices().filter(v => v.lang === 'th-TH' || v.lang === 'th');
-    const female = th.find(v => /thipsuda|kanya|female|woman|หญิง/i.test(v.name))
-      || th.find(v => !/pattara|niwat|male|ชาย/i.test(v.name)) || th[0];
-    if (female) utt.voice = female;
+  // ใช้ new Audio() โดยตรง — audio element ไม่ถูก CORS block ต่างจาก fetch
+  // ลำดับ: ResponsiveVoice TTS URL → Google TTS URL → Web Speech
+  let _tried = 0;
+  function tryAudio(url, label) {
+    const a = new Audio(url);
+    a.volume = 1;
+    const onFail = () => {
+      _tried++;
+      if (_tried === 1) {
+        // ลอง Google TTS
+        const gtts = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=th&client=tw-ob&ttsspeed=0.75`;
+        tryAudio(gtts, 'Google TTS');
+      } else {
+        useWebSpeech();
+      }
+    };
+    a.addEventListener('error', onFail);
+    a.play()
+      .then(() => console.log('[TTS]', label, ':', text))
+      .catch(onFail);
   }
-  if (window.speechSynthesis.getVoices().length > 0) { pickVoice(); window.speechSynthesis.speak(utt); }
-  else { window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; pickVoice(); window.speechSynthesis.speak(utt); }; }
+
+  const rvUrl = `https://texttospeech.responsivevoice.org/v1/text:synthesize?lang=th&key=FREE&src=${encodeURIComponent(text)}&r=0&pitch=0.5&volume=1&speed=0.38&gender=female`;
+  tryAudio(rvUrl, 'ResponsiveVoice direct');
 }
 
 function broadcastQueue(current, history) {
