@@ -27,17 +27,17 @@ function fmtQueueNo(n) {
 }
 
 function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedName) {
-  // สร้างข้อความโดยเว้นวรรคชัดเจน ใช้ลูกน้ำ+จุดเพื่อบังคับให้ TTS หยุดพัก
+  // สร้างข้อความโดยเว้นวรรคชัดเจน ใช้จุดเพื่อบังคับให้ TTS หยุดพักชัดเจน
   const parts = [`ขอเชิญหมายเลข ${spellQueueNo(queueNo)}`];
-  if (bedRoom) {
+  if (bedRoom != null && bedRoom !== '') {
     parts.push(`ที่ห้อง ${numToThaiWords(bedRoom)}`);
   }
-  if (bedName) {
+  if (bedName != null && bedName !== '') {
     parts.push(`เตียง ${numToThaiWords(bedName)}`);
-  } else if (bedLabel && !bedRoom) {
+  } else if (bedLabel && (bedRoom == null || bedRoom === '')) {
     parts.push(bedLabel);
   }
-  const text = parts.join(", ");
+  const text = parts.join('. ');
 
   // 1. ResponsiveVoice — เสียงหญิงภาษาไทยจาก library (ดีที่สุด)
   if (window.responsiveVoice) {
