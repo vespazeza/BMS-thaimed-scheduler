@@ -2506,12 +2506,13 @@ function App() {
       const lnameCol  = findCol("_lname", "last_name", "surname");
       const pnameCol  = findCol("_pname", "prefix", "title");
       const licCol    = findCol("license_no", "license_num", "certificate");
-      // active column — ต้องไม่ใช่ FK ที่มี "type" หรือ "service"
-      const activeCol = cols.find(c =>
-        (c === "active" || c.endsWith("_active") || c === "is_active" ||
-         c === "active_status" || c.endsWith("_active_status")) &&
-        !c.includes("service") && !c.includes("type")
-      );
+      // หา active column — ให้ active_status มีความสำคัญสูงสุด
+      const activeCol =
+        cols.find(c => c === "active_status") ||
+        cols.find(c => c.endsWith("_active_status")) ||
+        cols.find(c => (c === "active" || c.endsWith("_active") || c === "is_active") &&
+          !c.includes("type") && !c.includes("service")) ||
+        null;
 
       // ── Step 3: SELECT * + CONCAT fullname ───────────────────────────────
       // ใช้ SELECT * เพื่อดึงข้อมูลครบ แล้วเพิ่ม fullname ที่ compute ได้
@@ -2526,7 +2527,7 @@ function App() {
         : "";
 
       const whereClause = activeCol
-        ? `WHERE ${activeCol} NOT IN (0,'N','n','false','inactive','')`
+        ? `WHERE ${activeCol} = 'Y'`
         : "";
       const orderBy = fnameCol
         ? `ORDER BY ${fnameCol}, ${lnameCol || fnameCol}`
