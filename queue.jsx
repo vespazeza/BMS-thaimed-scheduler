@@ -28,19 +28,32 @@ function pickAutoVoice(voices) {
     || th.find(v => !/pattara|niwat|male/i.test(v.name)) || th[0] || null;
 }
 
-// พูดข้อความด้วยการตั้งค่าเสียงที่บันทึกไว้ — ใช้ทั้งตอนเรียกคิวจริงและปุ่ม "ทดลองฟัง"
-function speakText(text, settingsOverride) {
-  const settings = settingsOverride || getVoiceSettings();
+// เสียงหญิงไทยจาก Google Translate TTS (ไม่ต้องพึ่งเสียงที่ติดตั้งในเครื่อง) —
+// endpoint สาธารณะที่ไม่เป็นทางการ ใช้ฟรี ไม่ต้องมี API key แต่ต้องมีอินเทอร์เน็ต
+// และอาจ error/ถูกจำกัดได้บ้าง จึง fallback ไปเสียงในเครื่องเสมอถ้าเล่นไม่สำเร็จ
+function speakGoogleTts(text, settings, onFail) {
+  try {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=th&client=tw-ob`;
+    if (window._qAudio) { window._qAudio.pause(); window._qAudio.src = ""; }
+    const audio = new Audio(url);
+    window._qAudio = audio;
+    audio.playbackRate = settings.rate;
+    audio.volume = settings.volume;
+    audio.addEventListener('error', onFail, { once: true });
+    audio.play().catch(onFail);
+  } catch (_) { onFail(); }
+}
 
-  // 1. ยังไม่ได้เลือกเสียงเอง (auto) + มี ResponsiveVoice — เสียงหญิงภาษาไทยจาก library (ดีที่สุด)
-  if (!settings.voiceURI && window.responsiveVoice) {
+// เสียงในเครื่อง — ResponsiveVoice ถ้ามี ไม่งั้น Web Speech API (เลือกเสียงที่ตั้งไว้
+// ตรงๆ ถ้ามี ไม่งั้น auto-pick เสียงหญิงไทยให้เอง)
+function speakLocal(text, settings) {
+  if (window.responsiveVoice) {
     window.responsiveVoice.cancel();
     window.responsiveVoice.speak(text, "Thai Female",
       { rate: settings.rate, pitch: settings.pitch, volume: settings.volume });
     return;
   }
 
-  // 2. Web Speech API — ใช้เสียงที่เลือกไว้ตรงๆ ถ้ามี ไม่งั้น auto-pick
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
@@ -54,6 +67,19 @@ function speakText(text, settingsOverride) {
   }
   if (window.speechSynthesis.getVoices().length > 0) apply();
   else window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; apply(); };
+}
+
+// พูดข้อความด้วยการตั้งค่าเสียงที่บันทึกไว้ — ใช้ทั้งตอนเรียกคิวจริงและปุ่ม "ทดลองฟัง"
+function speakText(text, settingsOverride) {
+  const settings = settingsOverride || getVoiceSettings();
+
+  // โหมดอัตโนมัติ (ยังไม่ได้เลือกเสียงของเครื่องเอง) → เสียงหญิงไทยจาก Google ก่อนเสมอ
+  // ถ้าเลือกเสียงของเครื่องไว้เอง (voiceURI) ให้ใช้เสียงนั้นตรงๆ ไม่ต้องผ่าน Google
+  if (!settings.voiceURI) {
+    speakGoogleTts(text, settings, () => speakLocal(text, settings));
+    return;
+  }
+  speakLocal(text, settings);
 }
 
 function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedName) {

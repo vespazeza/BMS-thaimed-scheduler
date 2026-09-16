@@ -2266,7 +2266,6 @@ function VoiceSettingsPage({ userInfo, therapistStatusText, onDisconnect }) {
 
   const thaiVoices  = voices.filter(v => v.lang === 'th-TH' || v.lang === 'th');
   const otherVoices = voices.filter(v => v.lang !== 'th-TH' && v.lang !== 'th');
-  const hasResponsiveVoice = !!window.responsiveVoice;
 
   const sliders = [
     { key: "rate",   label: "ความเร็ว",     min: 0.5, max: 1.3, step: 0.05 },
@@ -2294,11 +2293,12 @@ function VoiceSettingsPage({ userInfo, therapistStatusText, onDisconnect }) {
 
         {window.speechSynthesis && (
           <>
-            {hasResponsiveVoice && !settings.voiceURI && (
+            {!settings.voiceURI && (
               <div style={{ fontSize: 12.5, color: "var(--ink-faint)", background: "var(--surface-2)",
                 borderRadius: 8, padding: "10px 12px" }}>
-                ตอนนี้ใช้เสียงจาก ResponsiveVoice ("Thai Female") อยู่ — เลือกเสียงด้านล่างเพื่อ
-                ใช้เสียงของเบราว์เซอร์แทน
+                โหมดอัตโนมัติ: ใช้เสียงหญิงไทยจาก Google (ต้องมีอินเทอร์เน็ต) ชัดเจนแน่นอน
+                ไม่ขึ้นกับว่าเครื่องนี้มีเสียงไทยติดตั้งไว้หรือไม่ — ถ้าโหลดไม่สำเร็จ (เช่น
+                อินเทอร์เน็ตหลุด) จะสลับไปใช้เสียงในเครื่องให้เองอัตโนมัติ
               </div>
             )}
 
@@ -2308,7 +2308,7 @@ function VoiceSettingsPage({ userInfo, therapistStatusText, onDisconnect }) {
               </div>
               <select className="select" value={settings.voiceURI}
                 onChange={e => update({ voiceURI: e.target.value })}>
-                <option value="">อัตโนมัติ — เลือกเสียงหญิงภาษาไทยให้เอง</option>
+                <option value="">อัตโนมัติ — เสียงหญิงไทยจาก Google (แนะนำ)</option>
                 {thaiVoices.length > 0 && (
                   <optgroup label="เสียงภาษาไทย">
                     {thaiVoices.map(v => (
@@ -2354,6 +2354,12 @@ function VoiceSettingsPage({ userInfo, therapistStatusText, onDisconnect }) {
                   </div>
                 ))}
               </div>
+              {!settings.voiceURI && (
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 10 }}>
+                  หมายเหตุ: โหมดอัตโนมัติ (เสียง Google) ปรับได้เฉพาะความเร็ว/ความดัง —
+                  ระดับเสียงสูง-ต่ำมีผลเฉพาะตอนเลือกเสียงของเครื่องเองด้านบน
+                </div>
+              )}
             </section>
 
             <div style={{ display: "flex", gap: 10 }}>
