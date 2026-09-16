@@ -2695,10 +2695,13 @@ function App() {
       return { ok: true, data };
     } catch (e) {
       if (e.name === 'AbortError') return { ok: false, aborted: true, error: '' };
-      // 409 Conflict: HOSxP ยังประมวลผล request เดิมอยู่ — retry 1 ครั้งหลัง 600ms
+      // 409 Conflict: HOSxP ฝั่งเซิร์ฟเวอร์ยังไม่ว่าง (เช่น มีคนใช้ HOSxP desktop
+      // client เดียวกันอยู่) — ไม่เกี่ยวกับ request ซ้อนกันในแอปนี้เอง (คิวใน
+      // bms-session.js กันไว้แล้ว) ดังนั้น retry แบบถี่ขึ้นเรื่อย ๆ เผื่อรอบ busy สั้น ๆ
       if (e.message === '__CONFLICT__') {
-        if (_retry < 2) {
-          await new Promise(r => setTimeout(r, 1000 + _retry * 500));
+        const backoffMs = [1200, 2000, 3200, 5000];
+        if (_retry < backoffMs.length) {
+          await new Promise(r => setTimeout(r, backoffMs[_retry]));
           if (signal && signal.aborted) return { ok: false, aborted: true, error: '' };
           return executeQuery(sql, signal, _retry + 1);
         }

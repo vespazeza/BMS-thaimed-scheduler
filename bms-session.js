@@ -70,7 +70,7 @@ function escapeSqlStr(s) {
   return String(s == null ? '' : s).replace(/'/g, "''");
 }
 
-async function executeSqlViaApi(sql, config, externalSignal) {
+async function executeSqlViaApiRaw(sql, config, externalSignal) {
   if (!config || !config.apiUrl || !config.apiAuthKey)
     throw new Error('ยังไม่ได้เชื่อมต่อ BMS Session');
 
@@ -100,6 +100,28 @@ async function executeSqlViaApi(sql, config, externalSignal) {
     return json.data || [];
   } finally {
     if (timer) clearTimeout(timer);
+  }
+}
+
+// HOSxP API bridge ประมวลผลได้ทีละ 1 request ต่อ session เท่านั้น — ถ้ายิงซ้อนกัน
+// (เช่น โหลดหมอนวด + โหลดรายการบริการ + ค้นหาผู้ป่วย พร้อมกัน) จะได้ 409 กลับมา
+// คิวนี้บังคับให้ทุก query ทั่วทั้งแอปวิ่งทีละตัวเรียงกัน แก้ที่ต้นตอแทนการ retry หลัง error
+let _sqlQueueTail = Promise.resolve();
+
+async function executeSqlViaApi(sql, config, externalSignal) {
+  const prevTail = _sqlQueueTail;
+  let releaseTail;
+  _sqlQueueTail = new Promise(r => { releaseTail = r; });
+  try {
+    await prevTail;
+    if (externalSignal && externalSignal.aborted) {
+      const err = new Error('The user aborted a request.');
+      err.name = 'AbortError';
+      throw err;
+    }
+    return await executeSqlViaApiRaw(sql, config, externalSignal);
+  } finally {
+    releaseTail();
   }
 }
 
