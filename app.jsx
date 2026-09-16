@@ -103,8 +103,11 @@ function mapProviderRow(row, i) {
   const pname   = rowGet(row, "pname", "prefix", "title");
   const license = rowGet(row, "license_no", "license_number", "certificate_no", "license");
 
-  // fullname จาก SQL CONCAT — แสดงถูกต้องเสมอแม้ fname/lname อาจ encode ผิด
-  const fullname = (row.fullname || "").trim() || `ผู้ให้บริการ ${i + 1}`;
+  // fullname: ต่อ pname+fname+lname ฝั่ง client (เดิมต่อด้วย SQL CONCAT/CONVERT
+  // แบบ MySQL ซึ่งพังบน PostgreSQL — DB จริงของระบบนี้)
+  const fname = rowGet(row, "fname", "first_name");
+  const lname = rowGet(row, "lname", "last_name", "surname");
+  const fullname = (row.fullname || `${pname}${fname} ${lname}`).trim() || `ผู้ให้บริการ ${i + 1}`;
 
   // shortName: ดึงจาก fullname เพื่อหลีกเลี่ยง encoding issue ของ fname/lname
   const shortName = shortenFromFullname(fullname, pname) || fullname;
@@ -2484,15 +2487,16 @@ function App() {
     setTestResult(null);
 
     try {
-      // ── Step 1: DESCRIBE → รู้ชื่อ column จริง ────────────────────────────
+      // ── Step 1: รู้ชื่อ column จริง (DB คือ PostgreSQL — DESCRIBE เป็น syntax
+      // ของ MySQL เท่านั้น ใช้ information_schema.columns แทน) ────────────────
       let cols = [];
       let pkCol = null;
       try {
-        const desc = await executeSqlViaApi("DESCRIBE health_med_provider", config);
-        cols = (desc || []).map(r => r.Field || r.field || "").filter(Boolean);
-        // หา primary key จาก Key='PRI'
-        const pkRow = (desc || []).find(r => (r.Key || r.key || "").toUpperCase() === "PRI");
-        pkCol = pkRow ? (pkRow.Field || pkRow.field) : null;
+        const desc = await executeSqlViaApi(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'health_med_provider' ORDER BY ordinal_position`,
+          config
+        );
+        cols = (desc || []).map(r => r.column_name || r.Field || r.field || "").filter(Boolean);
       } catch (_) {}
 
       // ── Step 2: ค้นหา column ด้วย substring match ────────────────────────
@@ -2512,20 +2516,14 @@ function App() {
         !c.includes("service") && !c.includes("type")
       );
 
-      // ── Step 3: SELECT * + CONCAT fullname ───────────────────────────────
-      // ใช้ SELECT * เพื่อดึงข้อมูลครบ แล้วเพิ่ม fullname ที่ compute ได้
-      // CONVERT USING utf8mb4 แก้ปัญหา TIS-620 → UTF-8 ที่ระดับ MySQL
-      const concatExpr = (pnameCol && fnameCol && lnameCol)
-        ? `, CONVERT(CONCAT(
-              COALESCE(CONVERT(${pnameCol} USING utf8mb4),''),
-              COALESCE(CONVERT(${fnameCol} USING utf8mb4),''),
-              ' ',
-              COALESCE(CONVERT(${lnameCol} USING utf8mb4),'')
-            ) USING utf8mb4) AS fullname`
-        : "";
+      // ── Step 3: SELECT * ─────────────────────────────────────────────────
+      // ใช้ SELECT * เพื่อดึงข้อมูลครบ แล้วต่อ fullname ฝั่ง client (mapProviderRow)
+      // เดิมเคยต่อด้วย SQL CONCAT/CONVERT...USING utf8mb4 แบบ MySQL ซึ่งพังบน
+      // PostgreSQL (DB จริงของระบบนี้)
+      const concatExpr = "";
 
       const whereClause = activeCol
-        ? `WHERE ${activeCol} NOT IN (0,'N','n','false','inactive','')`
+        ? `WHERE ${activeCol}::text NOT IN ('0','N','n','false','inactive','')`
         : "";
       const orderBy = fnameCol
         ? `ORDER BY ${fnameCol}, ${lnameCol || fnameCol}`
@@ -2569,13 +2567,15 @@ function App() {
     setOperationStatus("loading");
     setOperationErrMsg("");
     try {
-      // DESCRIBE เพื่อรู้ column จริง
+      // รู้ชื่อ column จริง (DB คือ PostgreSQL — DESCRIBE เป็น syntax ของ MySQL
+      // เท่านั้น ใช้ information_schema.columns แทน)
       let cols = [], pkCol = null;
       try {
-        const desc = await executeSqlViaApi("DESCRIBE health_med_operation_item", config);
-        cols  = (desc || []).map(r => r.Field || r.field || "").filter(Boolean);
-        const pkRow = (desc || []).find(r => (r.Key || r.key || "").toUpperCase() === "PRI");
-        pkCol = pkRow ? (pkRow.Field || pkRow.field) : null;
+        const desc = await executeSqlViaApi(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'health_med_operation_item' ORDER BY ordinal_position`,
+          config
+        );
+        cols = (desc || []).map(r => r.column_name || r.Field || r.field || "").filter(Boolean);
       } catch (_) {}
 
       const findCol = (...kw) =>
@@ -2600,9 +2600,10 @@ function App() {
         return s === "Y" || s === "y" || s === "1" || s === "true";
       };
 
-      // CONVERT name เป็น UTF-8 และ alias
+      // alias ชื่อคอลัมน์จริงให้เป็นชื่อ generic (CONVERT...USING utf8mb4 เป็น
+      // syntax ของ MySQL ใช้กับ PostgreSQL ไม่ได้ — select ตรงๆ พอ)
       const extras = [];
-      if (nameCol)   extras.push(`CONVERT(${nameCol} USING utf8mb4) AS item_name`);
+      if (nameCol)   extras.push(`${nameCol} AS item_name`);
       if (priceCol)  extras.push(`${priceCol}  AS item_price`);
       if (minuteCol) extras.push(`${minuteCol} AS item_minute`);
       if (pkCol)     extras.push(`${pkCol} AS item_id`);
@@ -2611,7 +2612,7 @@ function App() {
 
       // WHERE: active_status = 'Y' หรือรูปแบบอื่น
       const whereClause = activeCol
-        ? `WHERE ${activeCol} = 'Y'`
+        ? `WHERE ${activeCol}::text = 'Y'`
         : "";
       const orderBy = nameCol ? `ORDER BY ${nameCol}` : "";
 
