@@ -32,16 +32,19 @@ function pickAutoVoice(voices) {
 // endpoint สาธารณะที่ไม่เป็นทางการ ใช้ฟรี ไม่ต้องมี API key แต่ต้องมีอินเทอร์เน็ต
 // และอาจ error/ถูกจำกัดได้บ้าง จึง fallback ไปเสียงในเครื่องเสมอถ้าเล่นไม่สำเร็จ
 function speakGoogleTts(text, settings, onFail) {
+  const fail = (reason) => { console.warn('[voice] Google TTS failed, fallback to local voice:', reason); onFail(); };
   try {
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=th&client=tw-ob`;
+    console.info('[voice] trying Google TTS:', url);
     if (window._qAudio) { window._qAudio.pause(); window._qAudio.src = ""; }
     const audio = new Audio(url);
     window._qAudio = audio;
     audio.playbackRate = settings.rate;
     audio.volume = settings.volume;
-    audio.addEventListener('error', onFail, { once: true });
-    audio.play().catch(onFail);
-  } catch (_) { onFail(); }
+    audio.addEventListener('error', () => fail(audio.error), { once: true });
+    audio.addEventListener('playing', () => console.info('[voice] Google TTS playing'), { once: true });
+    audio.play().catch(fail);
+  } catch (e) { fail(e); }
 }
 
 // เสียงในเครื่อง — ResponsiveVoice ถ้ามี ไม่งั้น Web Speech API (เลือกเสียงที่ตั้งไว้
@@ -63,6 +66,7 @@ function speakLocal(text, settings) {
     const chosen = (settings.voiceURI && voices.find(v => v.voiceURI === settings.voiceURI))
       || pickAutoVoice(voices);
     if (chosen) utt.voice = chosen;
+    console.info('[voice] using local voice:', chosen ? chosen.name : '(browser default)');
     window.speechSynthesis.speak(utt);
   }
   if (window.speechSynthesis.getVoices().length > 0) apply();
