@@ -47,16 +47,28 @@ function speakGoogleTts(text, settings, onFail) {
   } catch (e) { fail(e); }
 }
 
-// เสียงในเครื่อง — ResponsiveVoice ถ้ามี ไม่งั้น Web Speech API (เลือกเสียงที่ตั้งไว้
-// ตรงๆ ถ้ามี ไม่งั้น auto-pick เสียงหญิงไทยให้เอง)
+// ชั้นที่ 2: ResponsiveVoice — เฉพาะตอนยังไม่ได้เลือกเสียงเครื่องเอง (auto) และ library
+// โหลดสำเร็จ (script อาจโหลดไม่ทันหรือถูกบล็อกก็ได้ — ไม่ใช่ทุกเครื่อง/เครือข่ายจะผ่าน)
+// เลือกเสียงเองไว้ชัดเจนแล้ว → ข้ามไป Web Speech ตรงๆ ไม่ต้องผ่าน ResponsiveVoice
 function speakLocal(text, settings) {
-  if (window.responsiveVoice) {
+  if (!settings.voiceURI && window.responsiveVoice) {
+    console.info('[voice] trying ResponsiveVoice (Thai Female)');
     window.responsiveVoice.cancel();
-    window.responsiveVoice.speak(text, "Thai Female",
-      { rate: settings.rate, pitch: settings.pitch, volume: settings.volume });
+    window.responsiveVoice.speak(text, "Thai Female", {
+      rate: settings.rate, pitch: settings.pitch, volume: settings.volume,
+      onerror: () => {
+        console.warn('[voice] ResponsiveVoice failed, fallback to Web Speech');
+        speakWebSpeech(text, settings);
+      },
+    });
     return;
   }
+  speakWebSpeech(text, settings);
+}
 
+// ชั้นสุดท้าย: Web Speech API ของเบราว์เซอร์ (เลือกเสียงที่ตั้งไว้ตรงๆ ถ้ามี ไม่งั้น
+// auto-pick เสียงหญิงไทยให้เอง)
+function speakWebSpeech(text, settings) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);

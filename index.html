@@ -31,6 +31,11 @@
 
 <script src="bms-session.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
+<!-- เสียงหญิงไทยสำรอง (ชั้นที่ 2 รองจาก Google TTS ใน queue.jsx) — ใช้คีย์ฟรี/ไม่มีคีย์
+     เหมาะกับใช้งานส่วนตัว/ทดสอบเท่านั้น ถ้าใช้งานเชิงพาณิชย์จริงจังควรซื้อคีย์จาก
+     responsivevoice.org — โหลดแบบไม่บล็อก UI (async) ถ้าโหลดไม่สำเร็จ speakLocal()
+     จะข้ามไปใช้ Web Speech ของเบราว์เซอร์แทนโดยอัตโนมัติ -->
+<script src="https://code.responsivevoice.org/responsivevoice.js" async></script>
 <script type="text/babel" src="tweaks-panel.jsx"></script>
 <script type="text/babel" src="data.jsx"></script>
 <script type="text/babel" src="ui.jsx"></script>
