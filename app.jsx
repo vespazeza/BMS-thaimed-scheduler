@@ -196,6 +196,7 @@ function Sidebar({ activePage, onNav, collapsed, onToggle }) {
     { id: "svc",    icon: "leaf",  label: "บริการแพทย์แผนไทย" },
     { id: "bed",    icon: "list",  label: "เตียงบริการ" },
     { id: "screen", icon: "sun",   label: "หน้าจอ" },
+    { id: "voice",  icon: "volume",label: "เสียงเรียกคิว" },
   ];
   const inSettings = settingsItems.some(i => i.id === activePage);
   const [settingsOpen, setSettingsOpen] = useState(inSettings);
@@ -2235,6 +2236,141 @@ function ScreenPage({ t, setTweak, userInfo, therapistStatusText, onDisconnect }
   );
 }
 
+// ── Voice settings page: เลือกเสียง/ความเร็ว/ระดับเสียงสำหรับเรียกคิว ─────────────
+function VoiceSettingsPage({ userInfo, therapistStatusText, onDisconnect }) {
+  const [settings, setSettings] = useState(() => getVoiceSettings());
+  const [voices,   setVoices]   = useState([]);
+  const [speaking, setSpeaking] = useState(false);
+
+  useEffect(() => {
+    if (!window.speechSynthesis) return;
+    const load = () => setVoices(window.speechSynthesis.getVoices());
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+    return () => { if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
+
+  const update = (edits) => {
+    const next = { ...settings, ...edits };
+    setSettings(next);
+    saveVoiceSettings(next);
+  };
+
+  const reset = () => { setSettings(DEFAULT_VOICE_SETTINGS); saveVoiceSettings(DEFAULT_VOICE_SETTINGS); };
+
+  const test = () => {
+    setSpeaking(true);
+    speakText('ขอเชิญหมายเลข A07 ที่ห้อง 1 เตียง A1', settings);
+    setTimeout(() => setSpeaking(false), 2500);
+  };
+
+  const thaiVoices  = voices.filter(v => v.lang === 'th-TH' || v.lang === 'th');
+  const otherVoices = voices.filter(v => v.lang !== 'th-TH' && v.lang !== 'th');
+  const hasResponsiveVoice = !!window.responsiveVoice;
+
+  const sliders = [
+    { key: "rate",   label: "ความเร็ว",     min: 0.5, max: 1.3, step: 0.05 },
+    { key: "pitch",  label: "ระดับเสียงสูง-ต่ำ", min: 0.5, max: 2,   step: 0.05 },
+    { key: "volume", label: "ความดัง",       min: 0,   max: 1,   step: 0.05 },
+  ];
+
+  return (
+    <>
+      <TopBar userInfo={userInfo} therapistStatus={therapistStatusText} onDisconnect={onDisconnect}>
+        <div>
+          <div className="page-title">เสียงเรียกคิว</div>
+          <div className="page-sub">เลือกเสียงและปรับความเร็ว-ระดับเสียงสำหรับประกาศเรียกคิว</div>
+        </div>
+      </TopBar>
+
+      <div className="svc-content" style={{ gap: 28, maxWidth: 620 }}>
+
+        {!window.speechSynthesis && (
+          <div className="empty" style={{ flex: 1 }}>
+            <Icon name="volume" size={36} />
+            <div>เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง (Speech Synthesis)</div>
+          </div>
+        )}
+
+        {window.speechSynthesis && (
+          <>
+            {hasResponsiveVoice && !settings.voiceURI && (
+              <div style={{ fontSize: 12.5, color: "var(--ink-faint)", background: "var(--surface-2)",
+                borderRadius: 8, padding: "10px 12px" }}>
+                ตอนนี้ใช้เสียงจาก ResponsiveVoice ("Thai Female") อยู่ — เลือกเสียงด้านล่างเพื่อ
+                ใช้เสียงของเบราว์เซอร์แทน
+              </div>
+            )}
+
+            <section>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)", marginBottom: 10 }}>
+                🔊 เสียงที่ใช้
+              </div>
+              <select className="select" value={settings.voiceURI}
+                onChange={e => update({ voiceURI: e.target.value })}>
+                <option value="">อัตโนมัติ — เลือกเสียงหญิงภาษาไทยให้เอง</option>
+                {thaiVoices.length > 0 && (
+                  <optgroup label="เสียงภาษาไทย">
+                    {thaiVoices.map(v => (
+                      <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {otherVoices.length > 0 && (
+                  <optgroup label="เสียงภาษาอื่น (เครื่องนี้ไม่มีเสียงไทยเพิ่มเติม)">
+                    {otherVoices.map(v => (
+                      <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              {voices.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 6 }}>
+                  ไม่พบเสียงในเครื่องนี้เลย — เครื่อง/เบราว์เซอร์อาจไม่มีเสียงอ่านออกเสียงติดตั้งไว้
+                </div>
+              )}
+              {voices.length > 0 && thaiVoices.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 6 }}>
+                  เครื่องนี้ไม่มีเสียงภาษาไทยติดตั้งไว้ — เลือกได้เฉพาะเสียงภาษาอื่น หรือใช้โหมดอัตโนมัติ
+                </div>
+              )}
+            </section>
+
+            <section>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)", marginBottom: 14 }}>
+                🎚️ ปรับแต่งเสียง
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {sliders.map(s => (
+                  <div key={s.key}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5,
+                      color: "var(--ink-soft)", marginBottom: 4 }}>
+                      <span>{s.label}</span>
+                      <span style={{ fontWeight: 600, color: "var(--primary)" }}>{settings[s.key].toFixed(2)}</span>
+                    </div>
+                    <input type="range" min={s.min} max={s.max} step={s.step} value={settings[s.key]}
+                      onChange={e => update({ [s.key]: Number(e.target.value) })}
+                      style={{ width: "100%", accentColor: "var(--primary)" }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn-primary" onClick={test} disabled={speaking}
+                style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="volume" size={16} /> {speaking ? "กำลังพูด…" : "ทดลองฟัง"}
+              </button>
+              <button className="btn-ghost" onClick={reset}>รีเซ็ตเป็นค่าเริ่มต้น</button>
+            </div>
+          </>
+        )}
+
+      </div>
+    </>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -2988,6 +3124,14 @@ function App() {
           <ScreenPage
             t={t}
             setTweak={setTweak}
+            userInfo={bms.userInfo}
+            therapistStatusText={therapistStatusText}
+            onDisconnect={doDisconnect}
+          />
+        )}
+
+        {activePage === "voice" && (
+          <VoiceSettingsPage
             userInfo={bms.userInfo}
             therapistStatusText={therapistStatusText}
             onDisconnect={doDisconnect}

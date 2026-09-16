@@ -6,6 +6,56 @@ function fmtQueueNo(n) {
   return `A${String(n).padStart(2, '0')}`;
 }
 
+// ── Voice settings: เลือกเสียง/ปรับความเร็ว-ระดับเสียงได้จากหน้า "เสียงเรียกคิว" ──
+const VOICE_SETTINGS_KEY = 'thai_voice_settings';
+const DEFAULT_VOICE_SETTINGS = { voiceURI: '', rate: 0.7, pitch: 1.75, volume: 1 };
+
+function getVoiceSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VOICE_SETTINGS_KEY) || '{}');
+    return { ...DEFAULT_VOICE_SETTINGS, ...saved };
+  } catch { return { ...DEFAULT_VOICE_SETTINGS }; }
+}
+
+function saveVoiceSettings(settings) {
+  try { localStorage.setItem(VOICE_SETTINGS_KEY, JSON.stringify(settings)); } catch {}
+}
+
+// auto-pick เมื่อยังไม่ได้เลือกเสียงเอง — เดิมเป็น logic เดียวกันนี้ฝังอยู่ใน speakQueue
+function pickAutoVoice(voices) {
+  const th = voices.filter(v => v.lang === 'th-TH' || v.lang === 'th');
+  return th.find(v => /thipsuda|kanya|female|woman|หญิง/i.test(v.name))
+    || th.find(v => !/pattara|niwat|male/i.test(v.name)) || th[0] || null;
+}
+
+// พูดข้อความด้วยการตั้งค่าเสียงที่บันทึกไว้ — ใช้ทั้งตอนเรียกคิวจริงและปุ่ม "ทดลองฟัง"
+function speakText(text, settingsOverride) {
+  const settings = settingsOverride || getVoiceSettings();
+
+  // 1. ยังไม่ได้เลือกเสียงเอง (auto) + มี ResponsiveVoice — เสียงหญิงภาษาไทยจาก library (ดีที่สุด)
+  if (!settings.voiceURI && window.responsiveVoice) {
+    window.responsiveVoice.cancel();
+    window.responsiveVoice.speak(text, "Thai Female",
+      { rate: settings.rate, pitch: settings.pitch, volume: settings.volume });
+    return;
+  }
+
+  // 2. Web Speech API — ใช้เสียงที่เลือกไว้ตรงๆ ถ้ามี ไม่งั้น auto-pick
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'th-TH'; utt.rate = settings.rate; utt.pitch = settings.pitch; utt.volume = settings.volume;
+  function apply() {
+    const voices = window.speechSynthesis.getVoices();
+    const chosen = (settings.voiceURI && voices.find(v => v.voiceURI === settings.voiceURI))
+      || pickAutoVoice(voices);
+    if (chosen) utt.voice = chosen;
+    window.speechSynthesis.speak(utt);
+  }
+  if (window.speechSynthesis.getVoices().length > 0) apply();
+  else window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; apply(); };
+}
+
 function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedName) {
   // สร้างข้อความ: "ขอเชิญหมายเลข A07 ที่ห้อง 1 เตียง A1"
   let text = `ขอเชิญหมายเลข ${queueNo}`;
@@ -17,27 +67,7 @@ function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedNam
   } else if (bedLabel) {
     text += ` ${bedLabel}`;
   }
-
-  // 1. ResponsiveVoice — เสียงหญิงภาษาไทยจาก library (ดีที่สุด)
-  if (window.responsiveVoice) {
-    window.responsiveVoice.cancel();
-    window.responsiveVoice.speak(text, "Thai Female", { rate: 0.85, volume: 1 });
-    return;
-  }
-
-  // 2. Web Speech API fallback (ถ้าไม่มี ResponsiveVoice)
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = 'th-TH'; utt.rate = 0.7; utt.pitch = 1.75; utt.volume = 1;
-  function pickVoice() {
-    const th = window.speechSynthesis.getVoices().filter(v => v.lang === 'th-TH' || v.lang === 'th');
-    const female = th.find(v => /thipsuda|kanya|female|woman|หญิง/i.test(v.name))
-      || th.find(v => !/pattara|niwat|male/i.test(v.name)) || th[0];
-    if (female) utt.voice = female;
-  }
-  if (window.speechSynthesis.getVoices().length > 0) { pickVoice(); window.speechSynthesis.speak(utt); }
-  else { window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; pickVoice(); window.speechSynthesis.speak(utt); }; }
+  speakText(text);
 }
 
 function broadcastQueue(current, history) {
@@ -328,4 +358,7 @@ function QueuePage({ appts, therapistsData, activeServices, beds, userInfo,
   );
 }
 
-Object.assign(window, { QueuePage, fmtQueueNo, speakQueue, broadcastQueue });
+Object.assign(window, {
+  QueuePage, fmtQueueNo, speakQueue, broadcastQueue,
+  getVoiceSettings, saveVoiceSettings, pickAutoVoice, speakText, DEFAULT_VOICE_SETTINGS,
+});
