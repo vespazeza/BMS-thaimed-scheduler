@@ -199,6 +199,11 @@ function Sidebar({ activePage, onNav, collapsed, onToggle }) {
 
   useEffect(() => { if (inSettings) setSettingsOpen(true); }, [activePage]);
 
+  const openManual = () => {
+    const base = window.location.href.split('/').slice(0, -1).join('/');
+    window.open(`${base}/manual.html`, '_blank');
+  };
+
   return (
     <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
       <div className="brand">
@@ -247,6 +252,11 @@ function Sidebar({ activePage, onNav, collapsed, onToggle }) {
           ))}
         </div>
       )}
+
+      <button className="nav-item" onClick={openManual}>
+        <Icon name="note" size={19} />
+        <span className="nav-label">คู่มือการใช้งาน</span>
+      </button>
 
       <div className="side-foot">
         <button className="nav-item" onClick={onToggle}>

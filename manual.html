@@ -1,0 +1,644 @@
+<title>คู่มือ ThaiMed Scheduler</title>
+<meta name="description" content="คู่มือการใช้งานระบบจัดตารางนัดหมายร้านนวดแผนไทย ThaiMed Scheduler แบบทีละขั้นตอนพร้อมภาพประกอบหน้าจอจริง">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#faf6ee; --surface:#ffffff; --surface-2:#f4efe4; --line:#e6dfd0; --line-soft:#efe9dc;
+    --ink:#282f27; --ink-soft:#5c6459; --ink-faint:#8a9186;
+    --primary:#3d7a5b; --primary-deep:#2c5c43; --primary-tint:#eaf2ec; --primary-soft:#d7e9dd;
+    --accent:#c46a3e; --accent-tint:#fbe9dd;
+    --code-bg:#f1ece0;
+    --shadow: 0 1px 2px rgba(40,40,20,.04), 0 8px 24px -12px rgba(40,40,20,.14);
+
+    --st-booked-ink:   oklch(0.46 0.07 250); --st-booked-bg: oklch(0.95 0.03 250);
+    --st-confirm-ink:  oklch(0.46 0.072 158); --st-confirm-bg: oklch(0.95 0.034 156);
+    --st-arrived-ink:  oklch(0.50 0.085 74); --st-arrived-bg: oklch(0.95 0.04 80);
+    --st-service-ink:  oklch(0.44 0.10 44); --st-service-bg: oklch(0.95 0.045 48);
+    --st-done-ink:     oklch(0.50 0.012 78); --st-done-bg: oklch(0.945 0.01 80);
+    --st-cancel-ink:   oklch(0.52 0.085 22); --st-cancel-bg: oklch(0.95 0.035 24);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#181f1a; --surface:#202822; --surface-2:#1c2420; --line:#31392f; --line-soft:#2a322a;
+      --ink:#eef1ea; --ink-soft:#b7bfae; --ink-faint:#818a76;
+      --primary:#6cb98d; --primary-deep:#8fd0aa; --primary-tint:#20302a; --primary-soft:#28392f;
+      --accent:#e2946a; --accent-tint:#332720;
+      --code-bg:#232b24;
+      --st-booked-ink: oklch(0.78 0.09 250); --st-booked-bg: oklch(0.28 0.05 250);
+      --st-confirm-ink: oklch(0.78 0.09 158); --st-confirm-bg: oklch(0.28 0.05 156);
+      --st-arrived-ink: oklch(0.80 0.10 74); --st-arrived-bg: oklch(0.28 0.05 80);
+      --st-service-ink: oklch(0.78 0.11 44); --st-service-bg: oklch(0.28 0.06 48);
+      --st-done-ink: oklch(0.74 0.015 78); --st-done-bg: oklch(0.26 0.01 80);
+      --st-cancel-ink: oklch(0.75 0.10 22); --st-cancel-bg: oklch(0.28 0.05 24);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#181f1a; --surface:#202822; --surface-2:#1c2420; --line:#31392f; --line-soft:#2a322a;
+    --ink:#eef1ea; --ink-soft:#b7bfae; --ink-faint:#818a76;
+    --primary:#6cb98d; --primary-deep:#8fd0aa; --primary-tint:#20302a; --primary-soft:#28392f;
+    --accent:#e2946a; --accent-tint:#332720;
+    --code-bg:#232b24;
+    --st-booked-ink: oklch(0.78 0.09 250); --st-booked-bg: oklch(0.28 0.05 250);
+    --st-confirm-ink: oklch(0.78 0.09 158); --st-confirm-bg: oklch(0.28 0.05 156);
+    --st-arrived-ink: oklch(0.80 0.10 74); --st-arrived-bg: oklch(0.28 0.05 80);
+    --st-service-ink: oklch(0.78 0.11 44); --st-service-bg: oklch(0.28 0.06 48);
+    --st-done-ink: oklch(0.74 0.015 78); --st-done-bg: oklch(0.26 0.01 80);
+    --st-cancel-ink: oklch(0.75 0.10 22); --st-cancel-bg: oklch(0.28 0.05 24);
+  }
+
+  * { box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Sarabun","Noto Sans Thai",system-ui,sans-serif;
+    font-size:15.5px; line-height:1.7;
+    padding-inline:0;
+  }
+  img{ max-width:100%; display:block; }
+  a{ color:var(--primary-deep); }
+  code{ background:var(--code-bg); padding:.1em .4em; border-radius:5px; font-size:.9em; }
+
+  .layout{ display:flex; min-height:100%; max-width:1320px; margin:0 auto; }
+
+  /* ── Sidebar nav ───────────────────────────────────────────── */
+  .toc{
+    width:264px; flex-shrink:0; position:sticky; top:0; align-self:flex-start;
+    height:100vh; overflow-y:auto; padding:28px 14px 40px 20px;
+    border-right:1px solid var(--line);
+  }
+  .toc-brand{ display:flex; align-items:center; gap:10px; margin-bottom:22px; padding-right:8px; }
+  .toc-brand .mark{
+    width:34px; height:34px; border-radius:9px; background:var(--primary);
+    display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:15px;
+    flex-shrink:0;
+  }
+  .toc-brand .name{ font-weight:700; font-size:14.5px; line-height:1.25; }
+  .toc-brand .name small{ display:block; font-weight:500; font-size:11px; color:var(--ink-faint); }
+
+  .toc-group{ margin-bottom:4px; }
+  .toc-group-label{
+    font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-faint); padding:14px 10px 6px;
+  }
+  .toc a{
+    display:block; padding:7px 10px; border-radius:8px; font-size:13.5px;
+    color:var(--ink-soft); text-decoration:none; font-weight:500;
+    border-left:2px solid transparent;
+  }
+  .toc a:hover{ background:var(--surface-2); color:var(--ink); }
+  .toc a.active{ background:var(--primary-tint); color:var(--primary-deep); border-left-color:var(--primary); font-weight:700; }
+
+  .toc-toggle{ display:none; }
+
+  /* ── Main content ──────────────────────────────────────────── */
+  main{ flex:1; min-width:0; padding:0 40px 80px; }
+
+  .cover{ padding:52px 0 34px; border-bottom:1px solid var(--line); margin-bottom:44px; }
+  .cover .eyebrow{
+    display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:700;
+    color:var(--primary-deep); background:var(--primary-tint); padding:5px 12px; border-radius:100px;
+    letter-spacing:.03em; margin-bottom:16px;
+  }
+  .cover h1{ font-size:clamp(28px,4vw,40px); line-height:1.2; margin:0 0 10px; font-weight:700; text-wrap:balance; }
+  .cover p.lead{ font-size:16.5px; color:var(--ink-soft); max-width:640px; margin:0 0 22px; }
+  .cover .meta-row{ display:flex; flex-wrap:wrap; gap:10px; }
+  .meta-chip{
+    display:flex; align-items:center; gap:7px; background:var(--surface); border:1px solid var(--line);
+    padding:8px 13px; border-radius:11px; font-size:12.5px; color:var(--ink-soft); box-shadow:var(--shadow);
+  }
+  .meta-chip b{ color:var(--ink); }
+
+  section{ margin-bottom:64px; scroll-margin-top:24px; }
+  section .step-num{
+    display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px;
+    border-radius:9px; background:var(--primary); color:#fff; font-weight:800; font-size:13px; flex-shrink:0;
+  }
+  .sec-head{ display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+  .sec-head h2{ font-size:23px; margin:0; font-weight:700; }
+  .sec-sub{ color:var(--ink-faint); font-size:13.5px; margin:0 0 22px; padding-left:42px; }
+
+  h3{ font-size:16.5px; font-weight:700; margin:26px 0 8px; }
+  p{ margin:0 0 14px; color:var(--ink-soft); }
+  ul,ol{ margin:0 0 16px; padding-left:22px; color:var(--ink-soft); }
+  li{ margin-bottom:5px; }
+  li::marker{ color:var(--ink-faint); }
+  strong{ color:var(--ink); font-weight:700; }
+
+  .shot{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden;
+    box-shadow:var(--shadow); margin:16px 0 8px;
+  }
+  .shot img{ width:100%; height:auto; }
+  .cap{
+    display:flex; gap:8px; align-items:flex-start; font-size:12.5px; color:var(--ink-faint);
+    padding:0 2px; margin-bottom:26px;
+  }
+  .cap .n{ color:var(--primary-deep); font-weight:700; flex-shrink:0; }
+
+  .shot-row{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .shot-row .shot{ margin:16px 0 0; }
+  .shot-row figure{ margin:0; }
+
+  .callout{
+    display:flex; gap:11px; background:var(--primary-tint); border:1px solid var(--primary-soft);
+    border-radius:12px; padding:14px 16px; margin:18px 0; font-size:13.8px; color:var(--ink);
+  }
+  .callout.warn{ background:var(--accent-tint); border-color:color-mix(in oklab, var(--accent) 35%, var(--line)); }
+  .callout .ic{ flex-shrink:0; font-size:17px; line-height:1.5; }
+  .callout p{ margin:0; color:var(--ink); }
+  .callout p + p{ margin-top:6px; }
+
+  .kbd-btn{
+    display:inline-flex; align-items:center; gap:5px; background:var(--surface); border:1px solid var(--line);
+    padding:2px 9px; border-radius:7px; font-weight:600; font-size:.92em; color:var(--ink); box-shadow:0 1px 0 var(--line);
+  }
+
+  /* status legend */
+  .legend{ display:flex; flex-wrap:wrap; gap:10px; margin:14px 0 24px; }
+  .legend .pill{
+    display:flex; align-items:center; gap:7px; padding:7px 13px; border-radius:100px; font-size:13px; font-weight:600;
+  }
+  .legend .dot{ width:8px; height:8px; border-radius:50%; }
+
+  .grid-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:18px 0 8px; }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:16px 17px; box-shadow:var(--shadow); }
+  .card .ic{ font-size:20px; margin-bottom:8px; display:block; }
+  .card h4{ margin:0 0 4px; font-size:14.5px; font-weight:700; }
+  .card p{ margin:0; font-size:12.8px; color:var(--ink-faint); line-height:1.55; }
+
+  table{ width:100%; border-collapse:collapse; margin:12px 0 22px; font-size:13.5px; }
+  th,td{ text-align:left; padding:9px 12px; border-bottom:1px solid var(--line-soft); }
+  th{ color:var(--ink-faint); font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; }
+  tr:last-child td{ border-bottom:none; }
+
+  .divider{ height:1px; background:var(--line); margin:56px 0; border:none; }
+
+  footer{ padding:30px 0 60px; color:var(--ink-faint); font-size:12.5px; border-top:1px solid var(--line); margin-top:20px; }
+
+  /* mobile */
+  .toc-open-btn{
+    display:none; position:sticky; top:0; z-index:20; background:var(--bg);
+    border-bottom:1px solid var(--line); padding:12px 16px; align-items:center; gap:10px;
+    font-weight:700; font-size:14px; color:var(--ink);
+  }
+  .toc-open-btn svg{ width:18px; height:18px; }
+
+  @media (max-width: 860px){
+    .layout{ display:block; }
+    .toc{
+      position:fixed; inset:0 20% 0 0; z-index:30; height:100vh; width:auto;
+      transform:translateX(-100%); transition:transform .22s ease; box-shadow:0 0 40px rgba(0,0,0,.25);
+      background:var(--bg);
+    }
+    .toc.open{ transform:translateX(0); }
+    .toc-open-btn{ display:flex; }
+    main{ padding:0 16px 60px; }
+    .cover{ padding:30px 0 26px; }
+    .shot-row{ grid-template-columns:1fr; }
+    .sec-sub{ padding-left:0; margin-top:6px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){ .toc{ transition:none; } }
+</style>
+
+<div class="toc-open-btn" id="tocOpenBtn">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+  สารบัญคู่มือ
+</div>
+
+<div class="layout">
+  <nav class="toc" id="toc">
+    <div class="toc-brand">
+      <div class="mark">TS</div>
+      <div class="name">ThaiMed Scheduler<small>คู่มือการใช้งาน</small></div>
+    </div>
+
+    <div class="toc-group">
+      <div class="toc-group-label">เริ่มต้นใช้งาน</div>
+      <a href="#login">1. เชื่อมต่อระบบ HOSxP</a>
+      <a href="#overview">2. ภาพรวมหน้าจอ</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">งานประจำวัน</div>
+      <a href="#booking">3. จองนัดใหม่</a>
+      <a href="#editing">4. แก้ไข/อัปเดตสถานะนัด</a>
+      <a href="#queue">5. เรียกคิว</a>
+      <a href="#registry">6. ทะเบียนผู้รับบริการ</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">ตั้งค่าระบบ</div>
+      <a href="#therapists">7. ผู้ให้บริการ</a>
+      <a href="#services">8. บริการแพทย์แผนไทย</a>
+      <a href="#beds">9. เตียงบริการ</a>
+      <a href="#screen">10. หน้าจอ (ธีม/ฟอนต์)</a>
+    </div>
+    <div class="toc-group">
+      <div class="toc-group-label">ข้อมูลและสรุปผล</div>
+      <a href="#reports">11. รายงาน</a>
+      <a href="#notifications">12. การแจ้งเตือน</a>
+      <a href="#faq">13. คำถามที่พบบ่อย</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="cover">
+      <div class="eyebrow">📘 คู่มือฉบับผู้ใช้งาน</div>
+      <h1>คู่มือการใช้งานระบบ ThaiMed Scheduler</h1>
+      <p class="lead">ระบบจัดการคิวและนัดหมายบริการแพทย์แผนไทย สำหรับ "เรือนสมุนไพร" — เชื่อมต่อข้อมูลผู้ป่วย
+        ผู้ให้บริการ และรายการหัตถการโดยตรงจากระบบ HOSxP ของร้าน พร้อมจัดคิวหน้าร้าน ออกบัตรคิว
+        และสรุปรายงานยอดให้บริการแบบเรียลไทม์</p>
+      <div class="meta-row">
+        <div class="meta-chip">🖥️ <b>ใช้งานผ่านเบราว์เซอร์</b> ไม่ต้องติดตั้งโปรแกรม</div>
+        <div class="meta-chip">🔗 <b>เชื่อมต่อ HOSxP</b> ดึงข้อมูลผู้ป่วย/ผู้ให้บริการ/รายการหัตถการ</div>
+        <div class="meta-chip">🔔 <b>เรียกคิวด้วยเสียงพูดไทย</b> พร้อมจอแสดงผลหน้าร้าน</div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <section id="login">
+      <div class="sec-head"><span class="step-num">1</span><h2>เชื่อมต่อระบบ HOSxP</h2></div>
+      <p class="sec-sub">ขั้นตอนแรกก่อนเข้าใช้งานระบบทุกครั้ง</p>
+
+      <p>เมื่อเปิดระบบ ThaiMed Scheduler ครั้งแรก จะพบหน้าจอให้เชื่อมต่อกับระบบ HOSxP ของร้านก่อนเสมอ
+        เนื่องจากข้อมูลผู้ป่วย ผู้ให้บริการ และรายการหัตถการทั้งหมด ดึงมาจากฐานข้อมูล HOSxP โดยตรง</p>
+
+      <figure class="shot"><img src="shots/01-login.png" alt="หน้าจอเชื่อมต่อระบบ HOSxP"></figure>
+      <div class="cap"><span class="n">ภาพที่ 1</span> หน้าจอเชื่อมต่อระบบ HOSxP — กรอก BMS Session ID เพื่อเข้าใช้งาน</div>
+
+      <h3>วิธีเชื่อมต่อ</h3>
+      <ol>
+        <li>ขอ <strong>BMS Session ID</strong> จากหน้าจอระบบ HOSxP ของร้าน (เจ้าหน้าที่ดูแลระบบ HOSxP เป็นผู้ให้)</li>
+        <li>วาง Session ID ลงในช่อง <strong>BMS Session ID</strong></li>
+        <li>กดปุ่ม <span class="kbd-btn">✓ เชื่อมต่อระบบ</span></li>
+      </ol>
+
+      <div class="callout">
+        <div class="ic">💡</div>
+        <div>
+          <p><strong>เชื่อมต่ออัตโนมัติ:</strong> เพิ่ม <code>?bms-session-id=XXXXX</code> ต่อท้าย URL ของระบบ
+          เพื่อให้เชื่อมต่อทันทีโดยไม่ต้องพิมพ์เอง — เหมาะสำหรับตั้งเป็นลิงก์ลัดหน้าจอหลักของเครื่องหน้าร้าน</p>
+          <p>เมื่อเชื่อมต่อสำเร็จครั้งหนึ่งแล้ว ระบบจะจดจำการเชื่อมต่อไว้ในเบราว์เซอร์นาน <strong>7 วัน</strong>
+          จึงไม่ต้องกรอก Session ID ซ้ำทุกวัน จนกว่าจะกดออกจากระบบหรือครบกำหนด</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="overview">
+      <div class="sec-head"><span class="step-num">2</span><h2>ภาพรวมหน้าจอหลัก</h2></div>
+      <p class="sec-sub">ทำความรู้จักเมนูและส่วนต่าง ๆ ก่อนเริ่มใช้งาน</p>
+
+      <figure class="shot"><img src="shots/07-board-populated.png" alt="หน้าตารางนัด ภาพรวม"></figure>
+      <div class="cap"><span class="n">ภาพที่ 2</span> หน้า "ตารางนัด" หน้าแรกที่พบหลังเชื่อมต่อระบบสำเร็จ</div>
+
+      <div class="grid-cards">
+        <div class="card"><span class="ic">📋</span><h4>เมนูหลัก (ซ้าย)</h4><p>ตารางนัด · ทะเบียนผู้รับบริการ · เรียกคิว · รายงาน และเมนู "ตั้งค่า" ที่ขยายเพิ่มได้</p></div>
+        <div class="card"><span class="ic">🔍</span><h4>ช่องค้นหา + ปุ่มจองนัด</h4><p>ค้นหานัดหมายด้วยชื่อ/เบอร์โทร และปุ่มเขียวสำหรับจองนัดใหม่ อยู่มุมขวาบนของทุกหน้า</p></div>
+        <div class="card"><span class="ic">📅</span><h4>แถบเลือกวันที่</h4><p>ปุ่ม "วันนี้" และลูกศรซ้าย/ขวา สำหรับสลับดูตารางวันอื่น</p></div>
+        <div class="card"><span class="ic">🟢</span><h4>สถานะเชื่อมต่อ HOSxP</h4><p>มุมขวาบนแสดงชื่อร้าน/สาขาที่เชื่อมต่ออยู่ พร้อมปุ่ม "ออก" เพื่อยกเลิกการเชื่อมต่อ</p></div>
+      </div>
+
+      <h3>สัญลักษณ์สถานะนัดหมาย</h3>
+      <p>สีของบัตรนัดและป้ายสถานะมีความหมายเดียวกันทุกหน้าจอในระบบ (ตารางนัด, เรียกคิว, ทะเบียนผู้รับบริการ):</p>
+      <div class="legend">
+        <span class="pill" style="background:var(--st-booked-bg); color:var(--st-booked-ink)"><span class="dot" style="background:var(--st-booked-ink)"></span>จองแล้ว</span>
+        <span class="pill" style="background:var(--st-confirm-bg); color:var(--st-confirm-ink)"><span class="dot" style="background:var(--st-confirm-ink)"></span>ยืนยันแล้ว</span>
+        <span class="pill" style="background:var(--st-arrived-bg); color:var(--st-arrived-ink)"><span class="dot" style="background:var(--st-arrived-ink)"></span>มาถึงแล้ว</span>
+        <span class="pill" style="background:var(--st-service-bg); color:var(--st-service-ink)"><span class="dot" style="background:var(--st-service-ink)"></span>กำลังนวด</span>
+        <span class="pill" style="background:var(--st-done-bg); color:var(--st-done-ink)"><span class="dot" style="background:var(--st-done-ink)"></span>เสร็จสิ้น</span>
+        <span class="pill" style="background:var(--st-cancel-bg); color:var(--st-cancel-ink)"><span class="dot" style="background:var(--st-cancel-ink)"></span>ยกเลิก</span>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="booking">
+      <div class="sec-head"><span class="step-num">3</span><h2>จองนัดใหม่</h2></div>
+      <p class="sec-sub">ขั้นตอนสร้างนัดหมายใหม่ให้ลูกค้า</p>
+
+      <h3>ขั้นตอนที่ 1 — เปิดฟอร์มจองนัด</h3>
+      <p>กดปุ่ม <span class="kbd-btn">+ จองนัดใหม่</span> มุมขวาบนของหน้าตารางนัด หรือคลิกที่ช่องว่างในตารางตรงเวลา/ผู้ให้บริการที่ต้องการ
+        เพื่อให้ระบบกรอกเวลาและผู้ให้บริการล่วงหน้าให้อัตโนมัติ</p>
+      <figure class="shot"><img src="shots/03-booking-modal-empty.png" alt="ฟอร์มจองนัดใหม่เปล่า"></figure>
+      <div class="cap"><span class="n">ภาพที่ 3</span> หน้าต่างจองนัดใหม่ — ฝั่งซ้ายกรอกข้อมูลลูกค้าและเวลา ฝั่งขวาเลือกบริการ</div>
+
+      <h3>ขั้นตอนที่ 2 — ค้นหาลูกค้าจาก HOSxP</h3>
+      <p>พิมพ์ชื่อ, HN หรือเบอร์โทรในช่อง <strong>ชื่อ-สกุลลูกค้า</strong> ตั้งแต่ 2 ตัวอักษรขึ้นไป ระบบจะค้นหาในฐานข้อมูลผู้ป่วยของ HOSxP
+        ให้อัตโนมัติ (ไม่ต้องกดปุ่มค้นหา) และแสดงรายชื่อพร้อม HN สิทธิการรักษา และเบอร์โทรให้เลือก</p>
+      <figure class="shot"><img src="shots/04-booking-patient-search.png" alt="ค้นหาผู้ป่วยจาก HOSxP"></figure>
+      <div class="cap"><span class="n">ภาพที่ 4</span> ผลค้นหาผู้ป่วยจาก HOSxP แบบอัตโนมัติ — คลิกเลือกชื่อที่ต้องการ</div>
+      <div class="callout">
+        <div class="ic">ℹ️</div>
+        <p>หากไม่พบข้อมูลผู้ป่วยในระบบ หรือไม่ต้องการผูกกับ HN สามารถพิมพ์ชื่อ-นามสกุลลูกค้าลงไปตรง ๆ ได้เช่นกัน
+        ระบบจะบันทึกเป็นนัดหมายแบบไม่ผูก HN</p>
+      </div>
+
+      <h3>ขั้นตอนที่ 3 — เลือกผู้ให้บริการ เวลา และบริการ</h3>
+      <p>เลือก <strong>หมอนวด</strong> และ <strong>เวลาเริ่มต้น</strong> จากช่องดรอปดาวน์ หากร้านมีการตั้งค่าเตียงบริการไว้
+        จะมีช่อง <strong>เตียงบริการ</strong> เพิ่มให้เลือกด้วย (เตียงที่ไม่ว่างในช่วงเวลานั้นจะถูกปิดไม่ให้เลือก)
+        จากนั้นเลือกรายการบริการจากการ์ดทางฝั่งขวา ระบบจะคำนวณช่วงเวลาสิ้นสุดและราคาให้อัตโนมัติในกล่องสรุปด้านล่าง</p>
+      <figure class="shot"><img src="shots/05-booking-filled.png" alt="กรอกข้อมูลจองนัดครบถ้วน"></figure>
+      <div class="cap"><span class="n">ภาพที่ 5</span> กรอกข้อมูลนัดหมายครบถ้วน พร้อมกล่องสรุปเวลาและราคาด้านล่าง</div>
+
+      <p>กดปุ่ม <span class="kbd-btn">✓ ยืนยันการจอง</span> เพื่อบันทึก ระบบจะตรวจสอบให้อัตโนมัติก่อนบันทึกเสมอว่า:</p>
+      <ul>
+        <li><strong>เวลาของผู้ให้บริการไม่ชนกัน</strong> — หากชนกัน ระบบจะแจ้งเตือนและไม่ยอมให้บันทึกจนกว่าจะเปลี่ยนเวลาหรือผู้ให้บริการ</li>
+        <li><strong>เตียงบริการไม่ถูกจองซ้ำ</strong> — เช่นเดียวกับผู้ให้บริการ</li>
+        <li><strong>ลูกค้าคนเดิม (HN เดียวกัน) มีนัดในวันเดียวกันอยู่แล้วหรือไม่</strong> — กรณีนี้เป็นเพียงคำเตือน ยังสามารถกด "จองต่อ" เพื่อจองซ้ำได้หากตั้งใจ</li>
+      </ul>
+
+      <h3>ขั้นตอนที่ 4 — บัตรคิวนัดหมาย</h3>
+      <p>เมื่อจองสำเร็จ ระบบจะออก <strong>บัตรคิวนัดหมาย</strong> ให้ทันที พร้อมหมายเลขคิวประจำวัน (เช่น A01, A02, …)
+        กดปุ่ม <span class="kbd-btn">🖶 พิมพ์บัตรคิว</span> เพื่อพิมพ์มอบให้ลูกค้า หรือกด "ปิด" หากไม่ต้องการพิมพ์</p>
+      <figure class="shot"><img src="shots/06-queue-ticket.png" alt="บัตรคิวนัดหมาย"></figure>
+      <div class="cap"><span class="n">ภาพที่ 6</span> บัตรคิวนัดหมายที่ออกให้อัตโนมัติหลังจองสำเร็จ</div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="editing">
+      <div class="sec-head"><span class="step-num">4</span><h2>แก้ไข / อัปเดตสถานะนัดหมาย</h2></div>
+      <p class="sec-sub">เปลี่ยนเวลา ผู้ให้บริการ หรืออัปเดตความคืบหน้าของนัด</p>
+
+      <p>คลิกที่การ์ดนัดหมายใด ๆ บนตารางนัด เพื่อเปิดหน้าต่าง <strong>แก้ไขการจองนัด</strong>
+        ในนี้แสดงข้อมูลลูกค้า บริการ เวลา ราคา และหมายเหตุที่บันทึกไว้ สามารถเปลี่ยนผู้ให้บริการ เวลา เตียง
+        หรือบริการที่เลือกได้ทันที</p>
+      <figure class="shot"><img src="shots/08-appointment-detail.png" alt="หน้าต่างแก้ไขการจองนัด"></figure>
+      <div class="cap"><span class="n">ภาพที่ 7</span> หน้าต่างแก้ไขการจองนัด — แก้เวลา ผู้ให้บริการ บริการ และสถานะได้ในหน้าเดียว</div>
+
+      <h3>อัปเดตสถานะนัด</h3>
+      <p>ในส่วน <strong>อัปเดตสถานะ</strong> คลิกเลือกสถานะที่ตรงกับความคืบหน้าจริงของลูกค้า ตามลำดับ
+        จองแล้ว → ยืนยันแล้ว → มาถึงแล้ว → กำลังนวด → เสร็จสิ้น (สามารถคลิกข้ามลำดับได้ ไม่บังคับต้องไล่ตามลำดับ)
+        แล้วกด <span class="kbd-btn">✓ บันทึก</span></p>
+      <figure class="shot"><img src="shots/08b-status-flow.png" alt="อัปเดตสถานะนัดหมาย"></figure>
+      <div class="cap"><span class="n">ภาพที่ 8</span> เลือกสถานะใหม่ เช่น "มาถึงแล้ว" เมื่อลูกค้ามาถึงร้าน</div>
+
+      <p>เมื่อบันทึกแล้ว สีของการ์ดนัดหมายบนตารางจะเปลี่ยนตามสถานะทันที ทำให้มองเห็นภาพรวมหน้าร้านได้ในพริบตา
+        และตัวเลขสรุป "อยู่ในร้านขณะนี้ / กำลังนวด / เสร็จสิ้น" ที่แถบสถิติด้านบนจะอัปเดตตามไปด้วย</p>
+      <figure class="shot"><img src="shots/09-board-status-updated.png" alt="ตารางนัดหลังอัปเดตสถานะ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 9</span> การ์ดนัดหมายเปลี่ยนเป็นสีส้ม (มาถึงแล้ว) และตัวเลขสรุปด้านบนอัปเดตอัตโนมัติ</div>
+
+      <div class="callout warn">
+        <div class="ic">⚠️</div>
+        <p><strong>ยกเลิกนัด:</strong> กดปุ่ม "ยกเลิกนัด" มุมล่างซ้ายของหน้าต่างแก้ไข หากลูกค้าไม่มาตามนัด
+        การ์ดจะแสดงเป็นสีแดงขีดฆ่าบนตาราง แต่ยังเก็บประวัติไว้ในระบบ ไม่ได้ลบทิ้ง</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="queue">
+      <div class="sec-head"><span class="step-num">5</span><h2>เรียกคิว</h2></div>
+      <p class="sec-sub">จัดคิวหน้าร้าน เรียกลูกค้าด้วยเสียง และจอแสดงผลรอคิว</p>
+
+      <p>ไปที่เมนู <strong>เรียกคิว</strong> ทางซ้าย จะเห็นคิวของวันนั้นแบ่งเป็น 4 คอลัมน์ตามสถานะ:
+        รอเรียกคิว → เรียกแล้ว → กำลังให้บริการ → เสร็จสิ้น พร้อมหมายเลขคิว (A01, A02, …) ที่ระบบออกให้อัตโนมัติตามลำดับการจอง</p>
+      <figure class="shot"><img src="shots/19-queue-page.png" alt="หน้าเรียกคิว"></figure>
+      <div class="cap"><span class="n">ภาพที่ 10</span> หน้าเรียกคิว แสดงรายการรอคิวของวันนี้เป็นบอร์ด 4 คอลัมน์</div>
+
+      <h3>เรียกลูกค้าเข้ารับบริการ</h3>
+      <p>กดปุ่ม <span class="kbd-btn">🔔 เรียกคิว</span> บนการ์ดคิวที่ต้องการ ระบบจะ:</p>
+      <ul>
+        <li>ย้ายคิวนั้นไปคอลัมน์ "เรียกแล้ว" และแสดงในแถบ "กำลังเรียกคิว" ตัวใหญ่ด้านบน</li>
+        <li><strong>พูดเรียกหมายเลขคิวเป็นภาษาไทย</strong> ผ่านลำโพงเครื่องโดยอัตโนมัติ (ต้องมีลำโพงและอินเทอร์เน็ต)</li>
+        <li>อัปเดตจอแสดงคิวหน้าร้าน (ถ้าเปิดไว้) ให้ทันที</li>
+      </ul>
+      <p>หากลูกค้ายังไม่ได้ยิน กดปุ่ม <span class="kbd-btn">🔁 เรียกซ้ำ</span> ที่แถบ "กำลังเรียกคิว" เพื่อพูดเรียกซ้ำได้โดยไม่ต้องเรียกคิวใหม่</p>
+      <figure class="shot"><img src="shots/20-queue-calling.png" alt="กำลังเรียกคิว"></figure>
+      <div class="cap"><span class="n">ภาพที่ 11</span> แถบ "กำลังเรียกคิว" แสดงหมายเลขคิวปัจจุบันตัวใหญ่ พร้อมปุ่มเรียกซ้ำ</div>
+
+      <p>เมื่อลูกค้าเริ่มนวด กดปุ่ม <span class="kbd-btn">▶ เริ่มบริการ</span> เพื่อย้ายไปคอลัมน์ "กำลังให้บริการ"
+        และเมื่อเสร็จแล้วกด <span class="kbd-btn">✓ เสร็จสิ้น</span></p>
+      <figure class="shot"><img src="shots/21-queue-in-service.png" alt="เริ่มให้บริการ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 12</span> คิวที่กดเริ่มบริการแล้วจะย้ายไปคอลัมน์ "กำลังให้บริการ"</div>
+
+      <h3>จอแสดงคิวหน้าร้าน</h3>
+      <p>กดปุ่ม <span class="kbd-btn">🗔 จอแสดงคิว</span> มุมบนของหน้าเรียกคิว เพื่อเปิดหน้าต่างแยกสำหรับฉายขึ้นจอทีวี/มอนิเตอร์
+        ในโซนรอคิวของลูกค้า หน้าจอนี้จะอัปเดตหมายเลขคิวปัจจุบันแบบเรียลไทม์ พร้อมนาฬิกาและข้อความต้อนรับวิ่งด้านล่าง
+        และ<strong>ปิดบังนามสกุลลูกค้าไว้เพื่อความเป็นส่วนตัว</strong> (แสดงเฉพาะชื่อ เช่น "นิภา XXX")</p>
+      <figure class="shot"><img src="shots/26-queue-display.png" alt="จอแสดงคิวหน้าร้าน"></figure>
+      <div class="cap"><span class="n">ภาพที่ 13</span> จอแสดงคิวสำหรับฉายในโซนรอคิว — อัปเดตอัตโนมัติทุกครั้งที่เรียกคิว</div>
+      <div class="callout">
+        <div class="ic">💡</div>
+        <p>ควรเปิดหน้าต่างจอแสดงคิวจากปุ่มนี้ในเบราว์เซอร์เครื่องเดียวกับที่ใช้เรียกคิว
+        (หรือเปิดผ่านลิงก์ที่ระบบสร้างให้) เพื่อให้ทั้งสองหน้าจอซิงก์ข้อมูลกันได้ถูกต้อง</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="registry">
+      <div class="sec-head"><span class="step-num">6</span><h2>ทะเบียนผู้รับบริการ</h2></div>
+      <p class="sec-sub">ประวัติการจองนัดทั้งหมด ค้นหาและส่งออกข้อมูล</p>
+
+      <p>เมนู <strong>ทะเบียนผู้รับบริการ</strong> รวมรายการนัดหมายทุกวัน (ไม่ใช่แค่วันนี้) ไว้ในตารางเดียว
+        ใช้ค้นหาประวัติลูกค้าเก่า ตรวจสอบยอดค่าบริการ หรือดูค่าตอบแทนผู้ให้บริการแต่ละคน</p>
+      <figure class="shot"><img src="shots/22-customer-registry.png" alt="ทะเบียนผู้รับบริการ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 14</span> ทะเบียนผู้รับบริการ — กรองตามช่วงวันที่ คำค้น หรือสิทธิการรักษา</div>
+
+      <h3>ตัวกรองที่ใช้ได้</h3>
+      <ul>
+        <li><strong>วันที่เริ่ม / ถึงวันที่</strong> — เลือกช่วงวันที่ต้องการดูย้อนหลัง</li>
+        <li><strong>ค้นหา HN / ชื่อ-สกุล</strong> — พิมพ์คำค้นเพื่อกรองรายชื่อ</li>
+        <li><strong>สิทธิรักษา</strong> — กรองตามสิทธิการรักษาของลูกค้า (ดึงจาก HOSxP)</li>
+      </ul>
+      <p>ด้านล่างตารางสรุป <strong>จำนวนรายการ, จำนวนที่เสร็จสิ้น, ยอดรวมค่าบริการ, รายได้จริง</strong> (นับเฉพาะนัดที่เสร็จสิ้นแล้ว)
+        และยอดค่าตอบแทนผู้ให้บริการรวม (หากตั้งค่าไว้)</p>
+
+      <p>กดปุ่ม <span class="kbd-btn">📊 Export Excel</span> มุมบนขวา เพื่อดาวน์โหลดรายการที่กรองอยู่เป็นไฟล์ตารางที่เปิดได้ตรงใน Excel ทันที</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="therapists">
+      <div class="sec-head"><span class="step-num">7</span><h2>ตั้งค่า — ผู้ให้บริการ</h2></div>
+      <p class="sec-sub">ทะเบียนหมอนวด ดึงข้อมูลตรงจาก HOSxP</p>
+
+      <p>เมนู <strong>ตั้งค่า → ผู้ให้บริการ</strong> แสดงรายชื่อผู้ให้บริการ (หมอนวด) ทั้งหมดของร้าน
+        ซึ่งดึงมาจากระบบ HOSxP โดยตรง <strong>หน้านี้เป็นหน้าแสดงผลอย่างเดียว</strong> — การเพิ่ม/แก้ไข/ลบผู้ให้บริการ
+        ต้องทำที่ระบบ HOSxP เท่านั้น</p>
+      <figure class="shot"><img src="shots/10-therapists-page.png" alt="ทะเบียนผู้ให้บริการ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 15</span> ทะเบียนผู้ให้บริการจาก HOSxP พร้อมเลขที่ใบอนุญาตและประเภทบริการ</div>
+
+      <p>คลิกที่แถวรายชื่อ เพื่อดูรายละเอียดฉบับเต็มของผู้ให้บริการคนนั้นตามที่บันทึกไว้ใน HOSxP</p>
+      <figure class="shot"><img src="shots/11-therapist-detail.png" alt="รายละเอียดผู้ให้บริการ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 16</span> รายละเอียดผู้ให้บริการรายบุคคล</div>
+
+      <div class="callout">
+        <div class="ic">🛠️</div>
+        <p><strong>สำหรับผู้ดูแลระบบ:</strong> ใช้ปุ่ม "โหลดใหม่" เพื่อดึงข้อมูลล่าสุดจาก HOSxP และปุ่ม "ทดสอบ API"
+        เพื่อตรวจสอบการเชื่อมต่อ หากระบบไม่สามารถดึง URL การเชื่อมต่ออัตโนมัติได้ หน้านี้จะมีช่องให้กรอก
+        URL และรหัสเชื่อมต่อ HOSxP ด้วยตนเอง — เป็นขั้นตอนของฝ่าย IT ไม่ใช่การใช้งานประจำวัน</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="services">
+      <div class="sec-head"><span class="step-num">8</span><h2>ตั้งค่า — บริการแพทย์แผนไทย</h2></div>
+      <p class="sec-sub">ทะเบียนรายการหัตถการและค่าตอบแทนผู้ให้บริการ</p>
+
+      <p>แสดงรายการหัตถการ/บริการทั้งหมดพร้อมราคาและระยะเวลา ดึงจาก HOSxP เช่นเดียวกับหน้าผู้ให้บริการ
+        (ชื่อ ราคา และเวลาแก้ไขได้ที่ระบบ HOSxP เท่านั้น) รายการที่ปิดใช้งานจะมีป้าย <strong>"ปิด"</strong> สีแดงกำกับ</p>
+      <figure class="shot"><img src="shots/12-services-page.png" alt="ทะเบียนรายการหัตถการ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 17</span> ทะเบียนรายการหัตถการ พร้อมคอลัมน์ "ค่าบริการผู้ให้บริการ"</div>
+
+      <h3>ตั้งค่าค่าตอบแทนผู้ให้บริการ</h3>
+      <p>คลิกรายการบริการเพื่อเปิดหน้าต่างรายละเอียด แล้วกรอกจำนวนเงินในช่อง <strong>ค่าบริการผู้ให้บริการ</strong>
+        (ค่าตอบแทนที่ร้านจ่ายให้หมอนวดต่อครั้ง) แล้วกด <span class="kbd-btn">บันทึก</span> —
+        <strong>เป็นค่าเดียวในหน้านี้ที่แก้ไขได้จากระบบนี้โดยตรง</strong> ใช้คำนวณยอดค่าตอบแทนในหน้าทะเบียนผู้รับบริการและรายงาน</p>
+      <figure class="shot"><img src="shots/13-service-detail.png" alt="ตั้งค่าค่าบริการผู้ให้บริการ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 18</span> ตั้งค่าค่าตอบแทนผู้ให้บริการต่อรายการหัตถการ</div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="beds">
+      <div class="sec-head"><span class="step-num">9</span><h2>ตั้งค่า — เตียงบริการ</h2></div>
+      <p class="sec-sub">จัดการเตียง/พื้นที่ให้บริการของร้าน (แก้ไขได้เต็มรูปแบบในระบบนี้)</p>
+
+      <p>ต่างจากหน้าผู้ให้บริการและบริการ หน้านี้จัดการข้อมูลของระบบเอง ไม่ได้ผูกกับ HOSxP
+        จึงเพิ่ม แก้ไข เปิด/ปิดเตียงได้อิสระ เหมาะสำหรับร้านที่มีหลายเตียง/ห้องนวด และต้องการกันเตียงชนกันตอนจองคิว</p>
+      <figure class="shot"><img src="shots/14-beds-page-empty.png" alt="หน้าจัดการเตียงบริการ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 19</span> หน้าจัดการเตียงบริการ (ยังไม่มีข้อมูล)</div>
+
+      <p>กดปุ่ม <span class="kbd-btn">+ เพิ่มเตียง</span> แล้วกรอก:</p>
+      <ul>
+        <li><strong>ชื่อเตียง / หมายเลขเตียง</strong> — เช่น เตียง 1, เตียง A, VIP 01</li>
+        <li><strong>ห้อง / ตำแหน่ง</strong> — เช่น ห้องนวด 1, ชั้น 2</li>
+        <li><strong>หมายเหตุ</strong> — เช่น สำหรับผู้พิการ, มีอ่างน้ำ</li>
+        <li><strong>Active</strong> — ติ๊กถูกหากพร้อมให้บริการ; หากปิดไว้ เตียงนี้จะไม่ปรากฏในฟอร์มจองนัด</li>
+      </ul>
+      <figure class="shot"><img src="shots/15-bed-form.png" alt="ฟอร์มเพิ่มเตียงบริการ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 20</span> ฟอร์มเพิ่มเตียงบริการใหม่</div>
+
+      <p>เมื่อบันทึกแล้ว เตียงจะปรากฏในรายการ พร้อมไอคอนแก้ไข (แก้ไขข้อมูล) และไอคอนตา (เปิด/ปิดการใช้งานชั่วคราว)</p>
+      <figure class="shot"><img src="shots/16-beds-page-filled.png" alt="รายการเตียงหลังเพิ่ม"></figure>
+      <div class="cap"><span class="n">ภาพที่ 21</span> รายการเตียงบริการหลังเพิ่มข้อมูล</div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="screen">
+      <div class="sec-head"><span class="step-num">10</span><h2>ตั้งค่า — หน้าจอ</h2></div>
+      <p class="sec-sub">ปรับธีมสี ฟอนต์ และขนาดตารางตามใจชอบ</p>
+
+      <p>เมนู <strong>ตั้งค่า → หน้าจอ</strong> ปรับรูปลักษณ์ของระบบได้ 3 ส่วน คลิกเลือกแล้วมีผลทันที ไม่ต้องกดบันทึก:</p>
+      <div class="grid-cards">
+        <div class="card"><span class="ic">🎨</span><h4>ธีมสี</h4><p>เลือกได้ 8 ธีม เช่น สมุนไพร (ค่าเริ่มต้น), มหาสมุทร, ดอกชบา, กลางคืน (โหมดมืด)</p></div>
+        <div class="card"><span class="ic">🔤</span><h4>ฟอนต์</h4><p>เลือกฟอนต์ไทย 4 แบบ: Sarabun, Prompt, Noto Sans Thai, IBM Plex Sans Thai</p></div>
+        <div class="card"><span class="ic">📐</span><h4>ขนาดตาราง</h4><p>ปรับความสูงของแต่ละช่องเวลาในตารางนัด: กระชับ / ปกติ / โปร่ง</p></div>
+      </div>
+      <figure class="shot"><img src="shots/17-screen-settings.png" alt="ตั้งค่าหน้าจอ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 22</span> หน้าตั้งค่าหน้าจอ — ธีมสีเริ่มต้น "สมุนไพร"</div>
+
+      <p>ตัวอย่างเมื่อเปลี่ยนเป็นธีม "มหาสมุทร" สีของทั้งระบบจะเปลี่ยนเป็นโทนฟ้าทันที:</p>
+      <figure class="shot"><img src="shots/18-screen-settings-theme-changed.png" alt="ตัวอย่างเปลี่ยนธีมสี"></figure>
+      <div class="cap"><span class="n">ภาพที่ 23</span> ตัวอย่างธีมสี "มหาสมุทร" หลังคลิกเลือก</div>
+      <div class="callout">
+        <div class="ic">💡</div>
+        <p>การตั้งค่าหน้าจอบันทึกแยกไว้ในเบราว์เซอร์ของแต่ละเครื่อง — หากเปลี่ยนธีมที่เครื่อง Reception
+        จะไม่กระทบหน้าจอของเครื่องอื่นในร้าน</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="reports">
+      <div class="sec-head"><span class="step-num">11</span><h2>รายงาน</h2></div>
+      <p class="sec-sub">ติดตามการให้บริการวันนี้ และดูสถิติย้อนหลัง</p>
+
+      <p>เมนู <strong>รายงาน</strong> แบ่งเป็น 2 แท็บที่มุมบน:</p>
+
+      <h3>🟢 ติดตามการให้บริการ (วันนี้)</h3>
+      <p>ภาพรวมของวันนี้แบบเรียลไทม์ — จำนวนผู้รับบริการ คิวที่รอ กำลังให้บริการ ภาระงานของผู้ให้บริการแต่ละคน
+        และคิวถัดไปที่รอดำเนินการ คลิกที่การ์ดผู้ให้บริการคนใดก็ได้เพื่อเปิดฟอร์มจองนัดใหม่ให้คนนั้นโดยตรง</p>
+      <figure class="shot"><img src="shots/23-report-live.png" alt="รายงานติดตามการให้บริการ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 24</span> แท็บ "ติดตามการให้บริการ" สรุปสถานะวันนี้แบบเรียลไทม์</div>
+
+      <h3>📊 รายงานและสถิติ (ย้อนหลัง)</h3>
+      <p>สถิติเชิงลึกจากประวัติการใช้งานในเครื่องนี้ ได้แก่ กราฟผู้รับบริการ/รายได้ 14 วันล่าสุด, บริการยอดนิยม,
+        สถิติย้อนหลัง 6 เดือน, ภาระงานสะสมของผู้ให้บริการแต่ละคน (รวมค่าตอบแทน), ช่วงเวลาที่มีการจองมากที่สุด,
+        อัตราการมาตามนัด/ยกเลิก และรายชื่อลูกค้าประจำ</p>
+      <figure class="shot"><img src="shots/24-report-stats.png" alt="รายงานและสถิติ"></figure>
+      <div class="cap"><span class="n">ภาพที่ 25</span> แท็บ "รายงานและสถิติ" สำหรับดูแนวโน้มย้อนหลัง</div>
+
+      <div class="callout warn">
+        <div class="ic">⚠️</div>
+        <p>สถิติย้อนหลังในแท็บนี้เก็บไว้ในเบราว์เซอร์ของเครื่องที่ใช้งาน หากล้างข้อมูลเบราว์เซอร์
+        หรือเปลี่ยนไปใช้เครื่องอื่น ประวัติสถิติเก่าจะไม่ติดตามไปด้วย (ตัวเลขของ "วันนี้" ในตารางนัดยังคงถูกต้องเสมอ
+        เพราะดึงจาก HOSxP สด ๆ ทุกครั้ง)</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section id="notifications">
+      <div class="sec-head"><span class="step-num">12</span><h2>การแจ้งเตือน</h2></div>
+      <p class="sec-sub">ไม่พลาดคิวที่ใกล้ถึง หรือนัดของพรุ่งนี้</p>
+
+      <p>ไอคอนกระดิ่งมุมขวาบนของหน้าตารางนัด จะมีตัวเลขสีแดงแจ้งจำนวนการแจ้งเตือนที่ยังไม่ได้อ่าน คลิกเพื่อเปิดดูรายการ
+        แบ่งเป็นแท็บ: ทั้งหมด, คิวจะถึง (ภายใน 60 นาที), วันนัด (พรุ่งนี้), และเปลี่ยนแปลง (นัดที่ถูกยกเลิก/ย้ายเวลา)</p>
+      <figure class="shot"><img src="shots/25-notifications.png" alt="ศูนย์การแจ้งเตือน"></figure>
+      <div class="cap"><span class="n">ภาพที่ 26</span> แผงการแจ้งเตือน — คิวด่วนจะมีแถบสีแดงและปุ่มลัดไปหน้าเรียกคิว</div>
+      <p>การแจ้งเตือนคิวด่วน (เหลือเวลาไม่ถึง 15 นาที) จะมีแถบสีแดงเน้นพิเศษ พร้อมปุ่ม
+        <span class="kbd-btn">ไปหน้าเรียกคิว →</span> ให้กดลัดไปจัดการได้ทันที และกด "อ่านทั้งหมด" เพื่อล้างตัวเลขแจ้งเตือนได้ทุกเมื่อ</p>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ============================================================ -->
+    <section id="faq">
+      <div class="sec-head"><span class="step-num">13</span><h2>คำถามที่พบบ่อย</h2></div>
+      <p class="sec-sub">ปัญหาที่พบได้บ่อยและวิธีแก้ไขเบื้องต้น</p>
+
+      <table>
+        <tr><th style="width:34%">อาการ</th><th>วิธีแก้ไข</th></tr>
+        <tr>
+          <td>ระบบขึ้นให้เชื่อมต่อ HOSxP ใหม่ทั้งที่เพิ่งใช้เมื่อวาน</td>
+          <td>Session ID มีอายุใช้งานจำกัด และคุกกี้ที่จดจำไว้ครบ 7 วันแล้ว — ขอ Session ID ใหม่จากระบบ HOSxP แล้วเชื่อมต่ออีกครั้ง</td>
+        </tr>
+        <tr>
+          <td>หน้า "ผู้ให้บริการ" หรือ "บริการแพทย์แผนไทย" ขึ้นข้อความโหลดข้อมูลไม่สำเร็จ</td>
+          <td>กดปุ่ม "โหลดใหม่" อีกครั้ง หากยังไม่สำเร็จ ให้แจ้งฝ่ายดูแลระบบตรวจสอบการเชื่อมต่อ HOSxP API</td>
+        </tr>
+        <tr>
+          <td>เรียกคิวแล้วไม่มีเสียงพูด</td>
+          <td>ตรวจสอบว่าลำโพงเครื่องเปิดอยู่และมีอินเทอร์เน็ต ระบบต้องใช้อินเทอร์เน็ตในการสังเคราะห์เสียงพูดภาษาไทย</td>
+        </tr>
+        <tr>
+          <td>จอแสดงคิวหน้าร้านไม่อัปเดตตามหน้าเรียกคิว</td>
+          <td>เปิดจอแสดงคิวด้วยปุ่ม "จอแสดงคิว" จากในระบบ (ไม่ใช่เปิด URL แยกเอง) และให้ทั้งสองหน้าต่างอยู่ในเบราว์เซอร์เครื่องเดียวกัน</td>
+        </tr>
+        <tr>
+          <td>ต้องการเพิ่ม/แก้ไขชื่อผู้ให้บริการหรือรายการบริการ</td>
+          <td>ทำที่ระบบ HOSxP โดยตรง ระบบนี้จะดึงข้อมูลล่าสุดมาแสดงให้อัตโนมัติ (หน้าผู้ให้บริการ/บริการเป็นหน้าแสดงผลอย่างเดียว)</td>
+        </tr>
+      </table>
+    </section>
+
+    <footer>
+      ThaiMed Scheduler — คู่มือการใช้งานฉบับนี้จัดทำจากหน้าจอจริงของระบบ (ข้อมูลลูกค้า/ผู้ให้บริการในภาพประกอบเป็นข้อมูลตัวอย่างเพื่อการสาธิตเท่านั้น)
+    </footer>
+  </main>
+</div>
+
+<script>
+(function(){
+  try{
+    var btn = document.getElementById('tocOpenBtn');
+    var toc = document.getElementById('toc');
+    btn && btn.addEventListener('click', function(){ toc.classList.toggle('open'); });
+    toc.querySelectorAll('a').forEach(function(a){
+      a.addEventListener('click', function(){ toc.classList.remove('open'); });
+    });
+
+    var links = Array.from(toc.querySelectorAll('a'));
+    var map = {};
+    links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+    var sections = Array.from(document.querySelectorAll('main section[id]'));
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          links.forEach(function(a){ a.classList.remove('active'); });
+          var link = map[e.target.id];
+          if(link) link.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-10% 0px -75% 0px', threshold: 0 });
+    sections.forEach(function(s){ io.observe(s); });
+  }catch(e){}
+})();
+</script>
