@@ -26,6 +26,98 @@ function fmtQueueNo(n) {
   return `A${String(n).padStart(2, '0')}`;
 }
 
+// ── Voice settings: เลือกเสียง/ปรับความเร็ว-ระดับเสียงได้จากหน้า "เสียงเรียกคิว" ──
+const VOICE_SETTINGS_KEY = 'thai_voice_settings';
+const DEFAULT_VOICE_SETTINGS = { voiceURI: '', rate: 0.7, pitch: 1.75, volume: 1 };
+
+function getVoiceSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VOICE_SETTINGS_KEY) || '{}');
+    return { ...DEFAULT_VOICE_SETTINGS, ...saved };
+  } catch { return { ...DEFAULT_VOICE_SETTINGS }; }
+}
+
+function saveVoiceSettings(settings) {
+  try { localStorage.setItem(VOICE_SETTINGS_KEY, JSON.stringify(settings)); } catch {}
+}
+
+// auto-pick เมื่อยังไม่ได้เลือกเสียงเอง — เดิมเป็น logic เดียวกันนี้ฝังอยู่ใน speakQueue
+function pickAutoVoice(voices) {
+  const th = voices.filter(v => v.lang === 'th-TH' || v.lang === 'th');
+  return th.find(v => /thipsuda|kanya|female|woman|หญิง/i.test(v.name))
+    || th.find(v => !/pattara|niwat|male/i.test(v.name)) || th[0] || null;
+}
+
+// เสียงหญิงไทยจาก Google Translate TTS (ไม่ต้องพึ่งเสียงที่ติดตั้งในเครื่อง) —
+// endpoint สาธารณะที่ไม่เป็นทางการ ใช้ฟรี ไม่ต้องมี API key แต่ต้องมีอินเทอร์เน็ต
+// และอาจ error/ถูกจำกัดได้บ้าง จึง fallback ไปเสียงในเครื่องเสมอถ้าเล่นไม่สำเร็จ
+function speakGoogleTts(text, settings, onFail) {
+  const fail = (reason) => { console.warn('[voice] Google TTS failed, fallback to local voice:', reason); onFail(); };
+  try {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=th&client=tw-ob`;
+    console.info('[voice] trying Google TTS:', url);
+    if (window._qAudio) { window._qAudio.pause(); window._qAudio.src = ""; }
+    const audio = new Audio(url);
+    window._qAudio = audio;
+    audio.playbackRate = settings.rate;
+    audio.volume = settings.volume;
+    audio.addEventListener('error', () => fail(audio.error), { once: true });
+    audio.addEventListener('playing', () => console.info('[voice] Google TTS playing'), { once: true });
+    audio.play().catch(fail);
+  } catch (e) { fail(e); }
+}
+
+// ชั้นที่ 2: ResponsiveVoice — เฉพาะตอนยังไม่ได้เลือกเสียงเครื่องเอง (auto) และ library
+// โหลดสำเร็จ (script อาจโหลดไม่ทันหรือถูกบล็อกก็ได้ — ไม่ใช่ทุกเครื่อง/เครือข่ายจะผ่าน)
+// เลือกเสียงเองไว้ชัดเจนแล้ว → ข้ามไป Web Speech ตรงๆ ไม่ต้องผ่าน ResponsiveVoice
+function speakLocal(text, settings) {
+  if (!settings.voiceURI && window.responsiveVoice) {
+    console.info('[voice] trying ResponsiveVoice (Thai Female)');
+    window.responsiveVoice.cancel();
+    window.responsiveVoice.speak(text, "Thai Female", {
+      rate: settings.rate, pitch: settings.pitch, volume: settings.volume,
+      onerror: () => {
+        console.warn('[voice] ResponsiveVoice failed, fallback to Web Speech');
+        speakWebSpeech(text, settings);
+      },
+    });
+    return;
+  }
+  speakWebSpeech(text, settings);
+}
+
+// ชั้นสุดท้าย: Web Speech API ของเบราว์เซอร์ (เลือกเสียงที่ตั้งไว้ตรงๆ ถ้ามี ไม่งั้น
+// auto-pick เสียงหญิงไทยให้เอง)
+function speakWebSpeech(text, settings) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'th-TH'; utt.rate = settings.rate; utt.pitch = settings.pitch; utt.volume = settings.volume;
+  function apply() {
+    const voices = window.speechSynthesis.getVoices();
+    const chosen = (settings.voiceURI && voices.find(v => v.voiceURI === settings.voiceURI))
+      || pickAutoVoice(voices);
+    if (chosen) utt.voice = chosen;
+    console.info('[voice] using local voice:', chosen ? chosen.name : '(browser default)');
+    window.speechSynthesis.speak(utt);
+  }
+  if (window.speechSynthesis.getVoices().length > 0) apply();
+  else window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; apply(); };
+}
+
+// พูดข้อความด้วยการตั้งค่าเสียงที่บันทึกไว้ — ใช้ทั้งตอนเรียกคิวจริงและปุ่ม "ทดลองฟัง"
+function speakText(text, settingsOverride) {
+  const settings = settingsOverride || getVoiceSettings();
+
+  // โหมดอัตโนมัติ (ยังไม่ได้เลือกเสียงของเครื่องเอง) → เสียงหญิงไทยจาก Google ก่อนเสมอ
+  // ถ้าเลือกเสียงของเครื่องไว้เอง (voiceURI) ให้ใช้เสียงนั้นตรงๆ ไม่ต้องผ่าน Google
+  if (!settings.voiceURI) {
+    speakGoogleTts(text, settings, () => speakLocal(text, settings));
+    return;
+  }
+  speakLocal(text, settings);
+}
+
 function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedName) {
   const parts = [`ขอเชิญ หมายเลข ${spellQueueNo(queueNo)}`];
   if (bedRoom != null && bedRoom !== '') {
@@ -60,38 +152,7 @@ function speakQueue(queueNo, patientName, bedLabel, serviceName, bedRoom, bedNam
     if (window.speechSynthesis.getVoices().length > 0) doSpeak();
     else window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; doSpeak(); };
   }
-
-  // หากมี ResponsiveVoice library โหลดอยู่แล้ว ใช้เลย
-  if (window.responsiveVoice && typeof window.responsiveVoice.speak === 'function') {
-    window.responsiveVoice.speak(text, "Thai Female", { rate: 0.38, volume: 1 });
-    console.log('[TTS] ResponsiveVoice library');
-    return;
-  }
-
-  // ใช้ new Audio() โดยตรง — audio element ไม่ถูก CORS block ต่างจาก fetch
-  // ลำดับ: ResponsiveVoice TTS URL → Google TTS URL → Web Speech
-  let _tried = 0;
-  function tryAudio(url, label) {
-    const a = new Audio(url);
-    a.volume = 1;
-    const onFail = () => {
-      _tried++;
-      if (_tried === 1) {
-        // ลอง Google TTS
-        const gtts = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=th&client=tw-ob&ttsspeed=0.75`;
-        tryAudio(gtts, 'Google TTS');
-      } else {
-        useWebSpeech();
-      }
-    };
-    a.addEventListener('error', onFail);
-    a.play()
-      .then(() => console.log('[TTS]', label, ':', text))
-      .catch(onFail);
-  }
-
-  const rvUrl = `https://texttospeech.responsivevoice.org/v1/text:synthesize?lang=th&key=FREE&src=${encodeURIComponent(text)}&r=0&pitch=0.5&volume=1&speed=0.38&gender=female`;
-  tryAudio(rvUrl, 'ResponsiveVoice direct');
+  speakText(text);
 }
 
 function broadcastQueue(current, history) {
@@ -382,4 +443,7 @@ function QueuePage({ appts, therapistsData, activeServices, beds, userInfo,
   );
 }
 
-Object.assign(window, { QueuePage, fmtQueueNo, speakQueue, broadcastQueue });
+Object.assign(window, {
+  QueuePage, fmtQueueNo, speakQueue, broadcastQueue,
+  getVoiceSettings, saveVoiceSettings, pickAutoVoice, speakText, DEFAULT_VOICE_SETTINGS,
+});

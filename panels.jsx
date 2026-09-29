@@ -115,9 +115,11 @@ function PatientAutocomplete({ executeQuery, value, onChange, onSelect, vstdate 
     const qSafe   = escapeSqlStr(q.trim());
     const telSafe = escapeSqlStr(q.trim().replace(/\s+/g, ''));
 
-    // HEX(CAST AS BINARY) → ดึง raw bytes หลีกเลี่ยง API connection charset
+    // encode(col::bytea,'hex') → ดึง raw bytes หลีกเลี่ยง API connection charset
     // decode client-side: UTF-8 ก่อน (ข้อมูลเก็บ UTF-8) fallback TIS-620
-    const hx = col => `HEX(CAST(${col} AS BINARY))`;
+    // หมายเหตุ: DB เบื้องหลังคือ PostgreSQL ไม่ใช่ MySQL — ใช้ encode()/::bytea
+    // แทน HEX(CAST(col AS BINARY)) แบบ MySQL ซึ่งพัง "type binary does not exist"
+    const hx = col => `encode(${col}::bytea, 'hex')`;
     let sql;
     if (vstdate) {
       const dateSafe = escapeSqlStr(vstdate);

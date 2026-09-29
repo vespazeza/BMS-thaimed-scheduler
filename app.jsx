@@ -103,8 +103,11 @@ function mapProviderRow(row, i) {
   const pname   = rowGet(row, "pname", "prefix", "title");
   const license = rowGet(row, "license_no", "license_number", "certificate_no", "license");
 
-  // fullname จาก SQL CONCAT — แสดงถูกต้องเสมอแม้ fname/lname อาจ encode ผิด
-  const fullname = (row.fullname || "").trim() || `ผู้ให้บริการ ${i + 1}`;
+  // fullname: ต่อ pname+fname+lname ฝั่ง client (เดิมต่อด้วย SQL CONCAT/CONVERT
+  // แบบ MySQL ซึ่งพังบน PostgreSQL — DB จริงของระบบนี้)
+  const fname = rowGet(row, "fname", "first_name");
+  const lname = rowGet(row, "lname", "last_name", "surname");
+  const fullname = (row.fullname || `${pname}${fname} ${lname}`).trim() || `ผู้ให้บริการ ${i + 1}`;
 
   // shortName: ดึงจาก fullname เพื่อหลีกเลี่ยง encoding issue ของ fname/lname
   const shortName = shortenFromFullname(fullname, pname) || fullname;
@@ -193,6 +196,7 @@ function Sidebar({ activePage, onNav, collapsed, onToggle }) {
     { id: "svc",    icon: "leaf",  label: "บริการแพทย์แผนไทย" },
     { id: "bed",    icon: "list",  label: "เตียงบริการ" },
     { id: "screen", icon: "sun",   label: "หน้าจอ" },
+    { id: "voice",  icon: "volume",label: "เสียงเรียกคิว" },
   ];
   const inSettings = settingsItems.some(i => i.id === activePage);
   const [settingsOpen, setSettingsOpen] = useState(inSettings);
@@ -2242,6 +2246,147 @@ function ScreenPage({ t, setTweak, userInfo, therapistStatusText, onDisconnect }
   );
 }
 
+// ── Voice settings page: เลือกเสียง/ความเร็ว/ระดับเสียงสำหรับเรียกคิว ─────────────
+function VoiceSettingsPage({ userInfo, therapistStatusText, onDisconnect }) {
+  const [settings, setSettings] = useState(() => getVoiceSettings());
+  const [voices,   setVoices]   = useState([]);
+  const [speaking, setSpeaking] = useState(false);
+
+  useEffect(() => {
+    if (!window.speechSynthesis) return;
+    const load = () => setVoices(window.speechSynthesis.getVoices());
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+    return () => { if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
+
+  const update = (edits) => {
+    const next = { ...settings, ...edits };
+    setSettings(next);
+    saveVoiceSettings(next);
+  };
+
+  const reset = () => { setSettings(DEFAULT_VOICE_SETTINGS); saveVoiceSettings(DEFAULT_VOICE_SETTINGS); };
+
+  const test = () => {
+    setSpeaking(true);
+    speakText('ขอเชิญหมายเลข A07 ที่ห้อง 1 เตียง A1', settings);
+    setTimeout(() => setSpeaking(false), 2500);
+  };
+
+  const thaiVoices  = voices.filter(v => v.lang === 'th-TH' || v.lang === 'th');
+  const otherVoices = voices.filter(v => v.lang !== 'th-TH' && v.lang !== 'th');
+
+  const sliders = [
+    { key: "rate",   label: "ความเร็ว",     min: 0.5, max: 1.3, step: 0.05 },
+    { key: "pitch",  label: "ระดับเสียงสูง-ต่ำ", min: 0.5, max: 2,   step: 0.05 },
+    { key: "volume", label: "ความดัง",       min: 0,   max: 1,   step: 0.05 },
+  ];
+
+  return (
+    <>
+      <TopBar userInfo={userInfo} therapistStatus={therapistStatusText} onDisconnect={onDisconnect}>
+        <div>
+          <div className="page-title">เสียงเรียกคิว</div>
+          <div className="page-sub">เลือกเสียงและปรับความเร็ว-ระดับเสียงสำหรับประกาศเรียกคิว</div>
+        </div>
+      </TopBar>
+
+      <div className="svc-content" style={{ gap: 28, maxWidth: 620 }}>
+
+        {!window.speechSynthesis && (
+          <div className="empty" style={{ flex: 1 }}>
+            <Icon name="volume" size={36} />
+            <div>เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง (Speech Synthesis)</div>
+          </div>
+        )}
+
+        {window.speechSynthesis && (
+          <>
+            {!settings.voiceURI && (
+              <div style={{ fontSize: 12.5, color: "var(--ink-faint)", background: "var(--surface-2)",
+                borderRadius: 8, padding: "10px 12px" }}>
+                โหมดอัตโนมัติ: ใช้เสียงหญิงไทยจาก Google (ต้องมีอินเทอร์เน็ต) ชัดเจนแน่นอน
+                ไม่ขึ้นกับว่าเครื่องนี้มีเสียงไทยติดตั้งไว้หรือไม่ — ถ้าโหลดไม่สำเร็จ (เช่น
+                อินเทอร์เน็ตหลุด) จะสลับไปใช้เสียงในเครื่องให้เองอัตโนมัติ
+              </div>
+            )}
+
+            <section>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)", marginBottom: 10 }}>
+                🔊 เสียงที่ใช้
+              </div>
+              <select className="select" value={settings.voiceURI}
+                onChange={e => update({ voiceURI: e.target.value })}>
+                <option value="">อัตโนมัติ — เสียงหญิงไทยจาก Google (แนะนำ)</option>
+                {thaiVoices.length > 0 && (
+                  <optgroup label="เสียงภาษาไทย">
+                    {thaiVoices.map(v => (
+                      <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {otherVoices.length > 0 && (
+                  <optgroup label="เสียงภาษาอื่น (เครื่องนี้ไม่มีเสียงไทยเพิ่มเติม)">
+                    {otherVoices.map(v => (
+                      <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              {voices.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 6 }}>
+                  ไม่พบเสียงในเครื่องนี้เลย — เครื่อง/เบราว์เซอร์อาจไม่มีเสียงอ่านออกเสียงติดตั้งไว้
+                </div>
+              )}
+              {voices.length > 0 && thaiVoices.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 6 }}>
+                  เครื่องนี้ไม่มีเสียงภาษาไทยติดตั้งไว้ — เลือกได้เฉพาะเสียงภาษาอื่น หรือใช้โหมดอัตโนมัติ
+                </div>
+              )}
+            </section>
+
+            <section>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)", marginBottom: 14 }}>
+                🎚️ ปรับแต่งเสียง
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {sliders.map(s => (
+                  <div key={s.key}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5,
+                      color: "var(--ink-soft)", marginBottom: 4 }}>
+                      <span>{s.label}</span>
+                      <span style={{ fontWeight: 600, color: "var(--primary)" }}>{settings[s.key].toFixed(2)}</span>
+                    </div>
+                    <input type="range" min={s.min} max={s.max} step={s.step} value={settings[s.key]}
+                      onChange={e => update({ [s.key]: Number(e.target.value) })}
+                      style={{ width: "100%", accentColor: "var(--primary)" }} />
+                  </div>
+                ))}
+              </div>
+              {!settings.voiceURI && (
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 10 }}>
+                  หมายเหตุ: โหมดอัตโนมัติ (เสียง Google) ปรับได้เฉพาะความเร็ว/ความดัง —
+                  ระดับเสียงสูง-ต่ำมีผลเฉพาะตอนเลือกเสียงของเครื่องเองด้านบน
+                </div>
+              )}
+            </section>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn-primary" onClick={test} disabled={speaking}
+                style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="volume" size={16} /> {speaking ? "กำลังพูด…" : "ทดลองฟัง"}
+              </button>
+              <button className="btn-ghost" onClick={reset}>รีเซ็ตเป็นค่าเริ่มต้น</button>
+            </div>
+          </>
+        )}
+
+      </div>
+    </>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -2494,15 +2639,16 @@ function App() {
     setTestResult(null);
 
     try {
-      // ── Step 1: DESCRIBE → รู้ชื่อ column จริง ────────────────────────────
+      // ── Step 1: รู้ชื่อ column จริง (DB คือ PostgreSQL — DESCRIBE เป็น syntax
+      // ของ MySQL เท่านั้น ใช้ information_schema.columns แทน) ────────────────
       let cols = [];
       let pkCol = null;
       try {
-        const desc = await executeSqlViaApi("DESCRIBE health_med_provider", config);
-        cols = (desc || []).map(r => r.Field || r.field || "").filter(Boolean);
-        // หา primary key จาก Key='PRI'
-        const pkRow = (desc || []).find(r => (r.Key || r.key || "").toUpperCase() === "PRI");
-        pkCol = pkRow ? (pkRow.Field || pkRow.field) : null;
+        const desc = await executeSqlViaApi(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'health_med_provider' ORDER BY ordinal_position`,
+          config
+        );
+        cols = (desc || []).map(r => r.column_name || r.Field || r.field || "").filter(Boolean);
       } catch (_) {}
 
       // ── Step 2: ค้นหา column ด้วย substring match ────────────────────────
@@ -2524,20 +2670,14 @@ function App() {
           !c.includes("type") && !c.includes("service")) ||
         null;
 
-      // ── Step 3: SELECT * + CONCAT fullname ───────────────────────────────
-      // ใช้ SELECT * เพื่อดึงข้อมูลครบ แล้วเพิ่ม fullname ที่ compute ได้
-      // CONVERT USING utf8mb4 แก้ปัญหา TIS-620 → UTF-8 ที่ระดับ MySQL
-      const concatExpr = (pnameCol && fnameCol && lnameCol)
-        ? `, CONVERT(CONCAT(
-              COALESCE(CONVERT(${pnameCol} USING utf8mb4),''),
-              COALESCE(CONVERT(${fnameCol} USING utf8mb4),''),
-              ' ',
-              COALESCE(CONVERT(${lnameCol} USING utf8mb4),'')
-            ) USING utf8mb4) AS fullname`
-        : "";
+      // ── Step 3: SELECT * ─────────────────────────────────────────────────
+      // ใช้ SELECT * เพื่อดึงข้อมูลครบ แล้วต่อ fullname ฝั่ง client (mapProviderRow)
+      // เดิมเคยต่อด้วย SQL CONCAT/CONVERT...USING utf8mb4 แบบ MySQL ซึ่งพังบน
+      // PostgreSQL (DB จริงของระบบนี้)
+      const concatExpr = "";
 
       const whereClause = activeCol
-        ? `WHERE ${activeCol} = 'Y'`
+        ? `WHERE ${activeCol}::text NOT IN ('0','N','n','false','inactive','')`
         : "";
       const orderBy = fnameCol
         ? `ORDER BY ${fnameCol}, ${lnameCol || fnameCol}`
@@ -2581,13 +2721,15 @@ function App() {
     setOperationStatus("loading");
     setOperationErrMsg("");
     try {
-      // DESCRIBE เพื่อรู้ column จริง
+      // รู้ชื่อ column จริง (DB คือ PostgreSQL — DESCRIBE เป็น syntax ของ MySQL
+      // เท่านั้น ใช้ information_schema.columns แทน)
       let cols = [], pkCol = null;
       try {
-        const desc = await executeSqlViaApi("DESCRIBE health_med_operation_item", config);
-        cols  = (desc || []).map(r => r.Field || r.field || "").filter(Boolean);
-        const pkRow = (desc || []).find(r => (r.Key || r.key || "").toUpperCase() === "PRI");
-        pkCol = pkRow ? (pkRow.Field || pkRow.field) : null;
+        const desc = await executeSqlViaApi(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'health_med_operation_item' ORDER BY ordinal_position`,
+          config
+        );
+        cols = (desc || []).map(r => r.column_name || r.Field || r.field || "").filter(Boolean);
       } catch (_) {}
 
       const findCol = (...kw) =>
@@ -2612,9 +2754,10 @@ function App() {
         return s === "Y" || s === "y" || s === "1" || s === "true";
       };
 
-      // CONVERT name เป็น UTF-8 และ alias
+      // alias ชื่อคอลัมน์จริงให้เป็นชื่อ generic (CONVERT...USING utf8mb4 เป็น
+      // syntax ของ MySQL ใช้กับ PostgreSQL ไม่ได้ — select ตรงๆ พอ)
       const extras = [];
-      if (nameCol)   extras.push(`CONVERT(${nameCol} USING utf8mb4) AS item_name`);
+      if (nameCol)   extras.push(`${nameCol} AS item_name`);
       if (priceCol)  extras.push(`${priceCol}  AS item_price`);
       if (minuteCol) extras.push(`${minuteCol} AS item_minute`);
       if (pkCol)     extras.push(`${pkCol} AS item_id`);
@@ -2623,7 +2766,7 @@ function App() {
 
       // WHERE: active_status = 'Y' หรือรูปแบบอื่น
       const whereClause = activeCol
-        ? `WHERE ${activeCol} = 'Y'`
+        ? `WHERE ${activeCol}::text = 'Y'`
         : "";
       const orderBy = nameCol ? `ORDER BY ${nameCol}` : "";
 
@@ -2707,10 +2850,13 @@ function App() {
       return { ok: true, data };
     } catch (e) {
       if (e.name === 'AbortError') return { ok: false, aborted: true, error: '' };
-      // 409 Conflict: HOSxP ยังประมวลผล request เดิมอยู่ — retry 1 ครั้งหลัง 600ms
+      // 409 Conflict: HOSxP ฝั่งเซิร์ฟเวอร์ยังไม่ว่าง (เช่น มีคนใช้ HOSxP desktop
+      // client เดียวกันอยู่) — ไม่เกี่ยวกับ request ซ้อนกันในแอปนี้เอง (คิวใน
+      // bms-session.js กันไว้แล้ว) ดังนั้น retry แบบถี่ขึ้นเรื่อย ๆ เผื่อรอบ busy สั้น ๆ
       if (e.message === '__CONFLICT__') {
-        if (_retry < 2) {
-          await new Promise(r => setTimeout(r, 1000 + _retry * 500));
+        const backoffMs = [1200, 2000, 3200, 5000];
+        if (_retry < backoffMs.length) {
+          await new Promise(r => setTimeout(r, backoffMs[_retry]));
           if (signal && signal.aborted) return { ok: false, aborted: true, error: '' };
           return executeQuery(sql, signal, _retry + 1);
         }
@@ -2996,6 +3142,14 @@ function App() {
           <ScreenPage
             t={t}
             setTweak={setTweak}
+            userInfo={bms.userInfo}
+            therapistStatusText={therapistStatusText}
+            onDisconnect={doDisconnect}
+          />
+        )}
+
+        {activePage === "voice" && (
+          <VoiceSettingsPage
             userInfo={bms.userInfo}
             therapistStatusText={therapistStatusText}
             onDisconnect={doDisconnect}
