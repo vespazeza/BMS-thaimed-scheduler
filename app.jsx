@@ -184,7 +184,7 @@ function TopBar({ userInfo, therapistStatus, onDisconnect, children, rightSlot }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-function Sidebar({ activePage, onNav, collapsed, onToggle }) {
+function Sidebar({ activePage, onNav, collapsed, onToggle, onOpenFeedback }) {
   const nav = [
     { id: "sched",  icon: "calendar", label: "ตารางนัด" },
     { id: "cust",   icon: "users",    label: "ทะเบียนผู้รับบริการ" },
@@ -260,6 +260,11 @@ function Sidebar({ activePage, onNav, collapsed, onToggle }) {
       <button className="nav-item" onClick={openManual}>
         <Icon name="note" size={19} />
         <span className="nav-label">คู่มือการใช้งาน</span>
+      </button>
+
+      <button className="nav-item" onClick={onOpenFeedback}>
+        <Icon name="alert" size={19} />
+        <span className="nav-label">แจ้งปัญหา</span>
       </button>
 
       <div className="side-foot">
@@ -2403,6 +2408,7 @@ function App() {
   const [booking,    setBooking]    = useState(null);
   const [selected,   setSelected]   = useState(null);
   const [printAppt,  setPrintAppt]  = useState(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [toast, setToast]       = useState("");
   const [hosxpStats, setHosxpStats] = useState(null);
   const [activePage, setActivePage] = useState("sched");
@@ -3041,7 +3047,8 @@ function App() {
   return (
     <div className="app">
       <Sidebar activePage={activePage} onNav={setActivePage}
-        collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+        collapsed={collapsed} onToggle={() => setCollapsed(c => !c)}
+        onOpenFeedback={() => setFeedbackOpen(true)} />
 
       <div className="main">
         {/* ── Report page ── */}
@@ -3290,6 +3297,13 @@ function App() {
           beds={beds}
         />
       )}
+
+      <FeedbackModal
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        userInfo={bms.userInfo}
+        showToast={showToast}
+      />
 
       <div className={"toast" + (toast ? " show" : "")}>
         <Icon name="check" size={16} /> {toast}

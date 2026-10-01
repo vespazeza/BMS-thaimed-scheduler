@@ -1061,4 +1061,223 @@ function QueueTicketModal({ appt, services, therapists, queueNo, date, onClose, 
   );
 }
 
-Object.assign(window, { BookingForm, DetailPanel, Drawer, ServiceForm, QueueTicketModal });
+// ── Feedback / issue reporting (shared Apps Script webhook across BMS apps) ───
+
+const FEEDBACK_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxUzKF-LpEL9aGhUgUh2saw8XvyjPcnkyAVqaq4uZBF6hHLdmSUi_m6o8cNLGdEvmD5/exec';
+const FEEDBACK_TOKEN = 'gfjoo4k';
+const FEEDBACK_APP_NAME = 'ThaiMed Scheduler';
+
+// ดึงค่าจาก row ของผลลัพธ์ Apps Script โดยลองหลายชื่อคีย์ที่เป็นไปได้ — เผื่อ
+// Apps Script ฝั่ง backend (ใช้ร่วมกันหลายแอป) ตั้งชื่อคอลัมน์ไม่ตรงกันทุกตัว
+function fbGet(row, ...keys) {
+  for (const k of keys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+  }
+  const lower = Object.keys(row).reduce((m, k) => (m[k.toLowerCase()] = row[k], m), {});
+  for (const k of keys) {
+    const v = lower[k.toLowerCase()];
+    if (v !== undefined && v !== null && v !== '') return v;
+  }
+  return '';
+}
+
+function fbFmtDate(s) {
+  if (!s) return '—';
+  // Apps Script อาจคืนวันที่มาเป็น ISO string หรือ serialize เป็นรูปแบบ Date
+  // แล้วแต่ runtime — new Date(s) รองรับได้ทั้งสองแบบ
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return String(s);
+  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
+    + ' ' + d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+}
+
+function FeedbackStatusBadge({ status }) {
+  const s = String(status || '');
+  const done = /แก้ไข|เสร็จ|ปิด/.test(s);
+  return (
+    <span className="pill" style={{
+      color: done ? 'var(--st-confirm-ink)' : 'var(--st-booked-ink)',
+      background: done ? 'var(--st-confirm-bg)' : 'var(--st-booked-bg)',
+      fontSize: 11.5, whiteSpace: 'nowrap',
+    }}>
+      <span className="dot" />{s || 'รอดำเนินการ'}
+    </span>
+  );
+}
+
+function FeedbackModal({ open, onClose, userInfo, showToast }) {
+  const [view, setView] = useState('form'); // 'form' | 'list'
+  const [reporter, setReporter] = useState('');
+  const [detail, setDetail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [list, setList] = useState([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState('');
+
+  const hospital = userInfo?.location || '';
+
+  useEffect(() => {
+    if (open) {
+      setReporter(userInfo?.name || '');
+      setDetail('');
+      setView('form');
+      setListError('');
+    }
+  }, [open, userInfo?.name]);
+
+  if (!open) return null;
+
+  const notify = (msg) => { if (showToast) showToast(msg); else alert(msg); };
+
+  const submitFeedbackReport = async () => {
+    if (!reporter.trim() || !detail.trim()) {
+      notify('กรุณากรอกผู้แจ้งและรายละเอียดให้ครบ');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // ไม่ตั้ง header Content-Type โดยตั้งใจ — เบราว์เซอร์จะส่งเป็น text/plain
+      // (simple request) แทน application/json จึงไม่ต้องทำ CORS preflight
+      const res = await fetch(FEEDBACK_WEBHOOK_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          token: FEEDBACK_TOKEN, app: FEEDBACK_APP_NAME,
+          hospital, reporter: reporter.trim(), detail: detail.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      notify('ส่งแจ้งปัญหาเรียบร้อยแล้ว');
+      onClose();
+    } catch (e) {
+      notify('ส่งแจ้งปัญหาไม่สำเร็จ — กรุณาลองใหม่ (' + e.message + ')');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openFeedbackStatusList = async () => {
+    setView('list');
+    setListLoading(true);
+    setListError('');
+    try {
+      const url = `${FEEDBACK_WEBHOOK_URL}?token=${FEEDBACK_TOKEN}&hospital=${encodeURIComponent(hospital)}&app=${encodeURIComponent(FEEDBACK_APP_NAME)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : (data.items || data.data || data.rows || []);
+      setList(rows);
+    } catch (e) {
+      setListError('โหลดรายการไม่สำเร็จ — ' + e.message);
+      setList([]);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-card fade-up" style={{ width: view === 'list' ? 760 : 460, maxWidth: '95vw' }}>
+        <div className="modal-head">
+          <div className="drawer-title">{view === 'list' ? 'รายการที่เคยแจ้งปัญหา' : 'แจ้งปัญหา'}</div>
+          <button className="icon-btn" onClick={onClose}><Icon name="close" /></button>
+        </div>
+
+        {view === 'form' ? (
+          <>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="field">
+                <label>โรงพยาบาล</label>
+                <input className="input" value={hospital} readOnly
+                  style={{ background: 'var(--surface-2)', color: 'var(--ink-faint)' }} />
+              </div>
+              <div className="field">
+                <label>ผู้แจ้ง</label>
+                <input className="input" value={reporter} onChange={e => setReporter(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>รายละเอียด</label>
+                <textarea className="input" rows={5} value={detail} onChange={e => setDetail(e.target.value)}
+                  placeholder="อธิบายปัญหาที่พบ เช่น ขั้นตอนที่ทำ, สิ่งที่คาดว่าจะเกิดขึ้น, สิ่งที่เกิดขึ้นจริง" />
+              </div>
+              <div style={{
+                display: 'flex', gap: 8, fontSize: 12.5, color: 'var(--st-cancel-ink)',
+                background: 'var(--st-cancel-bg)', borderRadius: 10, padding: '10px 12px', lineHeight: 1.6,
+              }}>
+                <span>⚠</span>
+                <span>กรุณาอย่าระบุข้อมูลผู้ป่วย เช่น ชื่อ-นามสกุล, HN, เลขบัตรประชาชน ในช่องรายละเอียด</span>
+              </div>
+              <button className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 13 }}
+                onClick={openFeedbackStatusList}>
+                <Icon name="list" size={14} /> ดูรายการที่เคยแจ้ง
+              </button>
+            </div>
+            <div className="modal-foot" style={{ gap: 10 }}>
+              <button className="btn-ghost" style={{ flex: 1 }} onClick={onClose}>ยกเลิก</button>
+              <button className="btn-fill" style={{ flex: 2 }} disabled={submitting} onClick={submitFeedbackReport}>
+                <Icon name="check" size={16} /> {submitting ? 'กำลังส่ง…' : 'ส่ง'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="modal-body" style={{ padding: '16px 24px', maxHeight: '60vh', overflowY: 'auto' }}>
+              {listLoading && (
+                <div className="empty" style={{ padding: '30px 0' }}>
+                  <Icon name="clock" size={28} /><div>กำลังโหลดรายการ…</div>
+                </div>
+              )}
+              {!listLoading && listError && (
+                <div className="login-error" style={{ width: 'auto' }}><Icon name="close" size={15} />{listError}</div>
+              )}
+              {!listLoading && !listError && list.length === 0 && (
+                <div className="empty" style={{ padding: '30px 0' }}>
+                  <Icon name="note" size={28} /><div>ยังไม่มีรายการที่เคยแจ้ง</div>
+                </div>
+              )}
+              {!listLoading && !listError && list.length > 0 && (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: 'var(--ink-faint)', fontSize: 11.5 }}>
+                        <th style={{ padding: '6px 8px' }}>#</th>
+                        <th style={{ padding: '6px 8px' }}>วันที่แจ้ง</th>
+                        <th style={{ padding: '6px 8px' }}>ผู้แจ้ง</th>
+                        <th style={{ padding: '6px 8px', minWidth: 160 }}>รายละเอียด</th>
+                        <th style={{ padding: '6px 8px', minWidth: 160 }}>วิธีแก้ไข</th>
+                        <th style={{ padding: '6px 8px' }}>สถานะ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map((row, i) => (
+                        <tr key={i} style={{ borderTop: '1px solid var(--line-soft)' }}>
+                          <td style={{ padding: '8px', color: 'var(--ink-faint)' }}>{i + 1}</td>
+                          <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>
+                            {fbFmtDate(fbGet(row, 'วันที่แจ้ง', 'timestamp', 'date', 'createdAt', 'วันที่'))}
+                          </td>
+                          <td style={{ padding: '8px' }}>{fbGet(row, 'ผู้แจ้ง', 'reporter')}</td>
+                          <td style={{ padding: '8px' }}>{fbGet(row, 'รายละเอียด', 'detail')}</td>
+                          <td style={{ padding: '8px', color: 'var(--ink-soft)' }}>
+                            {fbGet(row, 'วิธีแก้ไข', 'solution', 'resolution') || '—'}
+                          </td>
+                          <td style={{ padding: '8px' }}>
+                            <FeedbackStatusBadge status={fbGet(row, 'สถานะ', 'status')} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="modal-foot" style={{ gap: 10 }}>
+              <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setView('form')}>← กลับ</button>
+              <button className="btn-fill" style={{ flex: 1 }} onClick={onClose}>ปิด</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { BookingForm, DetailPanel, Drawer, ServiceForm, QueueTicketModal, FeedbackModal });
