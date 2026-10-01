@@ -1063,7 +1063,7 @@ function QueueTicketModal({ appt, services, therapists, queueNo, date, onClose, 
 
 // ── Feedback / issue reporting (shared Apps Script webhook across BMS apps) ───
 
-const FEEDBACK_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxUzKF-LpEL9aGhUgUh2saw8XvyjPcnkyAVqaq4uZBF6hHLdmSUi_m6o8cNLGdEvmD5/exec';
+const FEEDBACK_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbznqbrGSg2A6BKCA7t3KzPJSkNtEz7ohhe7zjGlIFAj8cejNrnx5dcoUvP9tMbRPG8l/exec';
 const FEEDBACK_TOKEN = 'gfjoo4k';
 const FEEDBACK_APP_NAME = 'ThaiMed Scheduler';
 
